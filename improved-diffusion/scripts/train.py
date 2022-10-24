@@ -140,7 +140,7 @@ def main():
         print(model3, model3.weight.requires_grad)
         # loss function，提前赋值进 args & embedding model，然后塞给diffusion
         mapping_func = partial(
-            compute_logp, args, model3.cuda() if torch.cuda.is_available() else model3  # for mac debug
+            compute_logp, args, model3.cuda()
         )
         diffusion.mapping_func = mapping_func
         return mapping_func
