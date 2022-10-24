@@ -8,7 +8,7 @@ import sys, yaml, os
 # from custom_trainer import GPT2LMHeadModelCompress, BERTModelCompress, AutoEncoderWithNoise
 
 def load_models(modality, mode, model_name_or_path, emb_dim, file, extra_args=None):
-
+    # 获取embedding层，这里emb_dim比较浅~=16  （作为向量？）   词库也只收录了最常使用的821个词（e2e-tgt任务）
     if mode in ['random', 'random1', 'random_up_proj', 'glove']:
         if modality == 'synth':
             print(file, 'deciding what to load::: ')

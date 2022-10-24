@@ -30,7 +30,7 @@ def main():
     dist_util.setup_dist() # DEBUG **
     logger.configure()
 
-
+    # 造扩散模型
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
@@ -104,12 +104,15 @@ def main():
             model=model22,
         )
         next(data)
-        model2, tokenizer = load_models(args.modality, args.experiment, args.model_name_or_path, args.in_channel,
-                                        args.checkpoint_path, extra_args=args)
+        embedding_model, tokenizer = load_models(
+            args.modality, args.experiment, args.model_name_or_path, args.in_channel,
+            args.checkpoint_path, extra_args=args
+        )
         if args.modality == 'book' or args.use_bert_tokenizer == 'yes':
             rev_tokenizer = tokenizer # BERT tokenizer BPE.
         else:
             rev_tokenizer = {v: k for k, v in tokenizer.items()}
+            # 逆向tokenizer  {'START': 0, 'END': 1, 'UNK': 2, 'PAD': 3, 'The': 4, 'Vaults': 5, 'pub': 6, 'near': 7, ...}
 
         data_valid = load_data_text(
             data_dir=args.data_dir,
@@ -121,7 +124,7 @@ def main():
             padding_mode=args.padding_mode,  # block, pad
             split='valid',
             load_vocab=rev_tokenizer,
-            model=model2,
+            model=embedding_model,
         )
 
     # dist.barrier()
@@ -129,11 +132,16 @@ def main():
     # while not os.path.exists(os.path.join(args.checkpoint_path, 'vocab.json')):
     #     time.sleep(1)
     def get_mapping_func(args, diffusion, data):
-        model2, tokenizer = load_models(args.modality, args.experiment, args.model_name_or_path, args.in_channel,
-                                        args.checkpoint_path, extra_args=args)
-        model3 = get_weights(model2, args)
+        model2, _ = load_models(
+            args.modality, args.experiment, args.model_name_or_path,
+            args.in_channel, args.checkpoint_path, extra_args=args
+        )
+        model3 = get_weights(model2, args)  # 设置成不需要grad
         print(model3, model3.weight.requires_grad)
-        mapping_func = partial(compute_logp, args, model3.cuda())
+        # loss function，提前赋值进 args & embedding model，然后塞给diffusion
+        mapping_func = partial(
+            compute_logp, args, model3.cuda() if torch.cuda.is_available() else model3  # for mac debug
+        )
         diffusion.mapping_func = mapping_func
         return mapping_func
 

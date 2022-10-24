@@ -33,15 +33,12 @@ if __name__ == '__main__':
     parser.add_argument('--use_big', type=str, default='no', help='')
     parser.add_argument('--app', type=str, default='', help='')
 
-
     args = parser.parse_args()
 
     folder_name = "diffusion_models/"
 
     if not os.path.isdir(folder_name):
         os.mkdir(folder_name)
-
-
 
     if args.loss_type == 'Lsimple':
         train_setup = " --use_kl False --learn_sigma False "
@@ -52,7 +49,6 @@ if __name__ == '__main__':
     else:
         assert False
 
-
     if args.experiment == 'random':
         exp_m = 'rand'
     if args.experiment == 'random1':
@@ -61,7 +57,6 @@ if __name__ == '__main__':
         exp_m = 'emb'
     elif args.experiment == 'glove':
         exp_m = 'glo'
-
 
     if args.modality == 'synth' or args.modality =='synth_trans':
 
@@ -76,7 +71,6 @@ if __name__ == '__main__':
         Model_FILE = f"diff_{args.modality}_{args.padding_mode}_{exp_m}{args.in_channel}_{args.model_arch}_lr{args.lr}_{args.weight_decay}" \
                      f"_{args.diff_steps}_{args.noise_schedule}_{args.loss_type}_h{args.hidden_size}" \
                      f"_s{args.num_res_blocks}_d{args.dropout}_sd{args.seed}"
-
 
     elif args.modality == 'pos':
         Model_FILE = f"diff_{args.modality}{0}_{0}_{exp_m}{args.in_channel}_{args.model_arch}_lr{args.lr}" \
@@ -94,7 +88,7 @@ if __name__ == '__main__':
     Model_FILE = os.path.join(folder_name, Model_FILE)
 
     app = " " + args.app
-
+    # go command line and run scripts/train.py
     COMMANDLINE = f" OPENAI_LOGDIR={Model_FILE}  " \
                   f"TOKENIZERS_PARALLELISM=false " \
                   f"python scripts/train.py   " \
@@ -109,7 +103,6 @@ if __name__ == '__main__':
                   f"--dropout {args.dropout} --in_channel {args.in_channel} --out_channel {args.in_channel} --padding_mode {args.padding_mode} " \
                   f"--experiment {args.experiment}  --lr_anneal_steps {args.lr_anneal_steps} --weight_decay {args.weight_decay} " \
                   f"--num_res_blocks {args.num_res_blocks} "
-
 
     COMMANDLINE += app
 

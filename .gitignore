@@ -1,0 +1,6 @@
+.idea/*
+improved-diffusion/diffusion_models/*
+improved-diffusion/improved_diffusion.egg-info/*
+improved-diffusion/wandb/*
+improved-diffusion/scripts/diffusion_models/*
+*.pyc

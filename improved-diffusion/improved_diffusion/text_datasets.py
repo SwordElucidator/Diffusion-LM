@@ -91,7 +91,7 @@ def load_data_text(
             training_data,
             image_size,
             data_args,
-            model_arch=data_args.model_arch,
+            model_arch=data_args.model_arch,  # transformer for NLP
         )
 
     if deterministic:
@@ -594,15 +594,15 @@ def get_corpus_rocstory(data_args, model, image_size, padding_mode='block',
     if not os.path.exists(path_save) and data_args.experiment == 'random':
         torch.save(model.state_dict(), path_save)
 
-
     if data_args.experiment_mode == 'lm' and data_args.modality in ['roc-aug', 'roc', 'yelp', 'commonGen', 'commonGen-aug'] \
-            and data_args.cache_mode=='no':
+            and data_args.cache_mode == 'no':
         train_dataset = helper_tokenize_stream(sentence_lst, vocab_dict, model, image_size**2, data_args, padding_mode)
         return train_dataset, model
     elif data_args.experiment_mode == 'lm':
         result_train_lst = helper_tokenize_encode(sentence_lst, vocab_dict, model, image_size**2, data_args, padding_mode)
     elif data_args.experiment_mode == 'conditional_gen':
         result_train_lst = helper_tokenize_encode_cond(sentence_lst, vocab_dict, model, image_size ** 2, data_args)
+    # result_train_lst is the result of the encoded items: [ { input_ids, hidden_states } ]
     return {'train': result_train_lst}, model
        
 
@@ -885,6 +885,7 @@ class TextDataset_NoCache(Dataset):
                 # print(arr.shape)
                 return arr, out_dict
             else:
+                # Diffusion-LM will only go this way
                 arr = np.array(hidden_state,
                                dtype=np.float32)
                 if self.eigen_transform is not None:
