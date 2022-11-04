@@ -79,10 +79,13 @@ def create_midi_dataloader(
     """
     tokenizer = MIDILike(sos_eos_tokens=True, mask=False)
     # data_args.data_path
-    tokens_list = [
-        tokenizer.midi_to_tokens(MidiFile(os.path.join(data_args.data_path, split, midi_file_name)))[0]
-        for midi_file_name in os.listdir(os.path.join(data_args.data_path, split))
-    ]  # will have a very long size for each
+    tokens_list = []
+    for midi_file_name in os.listdir(os.path.join(data_args.data_path, split)):
+        if midi_file_name.endswith('.mid'):
+            # will have a very long size for each
+            tokens = tokenizer.midi_to_tokens(MidiFile(os.path.join(data_args.data_path, split, midi_file_name)))
+            tokens_list.append(tokens[0])
+
     if not embedding_model:
         embedding_model = __create_embedding_model(data_args, vocab_size=len(tokenizer.vocab))
     padded_tokens_list = __padding(data_args, tokens_list, data_args.image_size ** 2)
