@@ -15,6 +15,9 @@ from improved_diffusion.script_util import (
     args_to_dict,
     add_dict_to_argparser,
 )
+from symbolic_music.datasets import create_midi_dataloader
+from symbolic_music.rounding import load_embedding_model
+from symbolic_music.utils import is_midi_task
 from transformers import AutoTokenizer
 from improved_diffusion.train_util import TrainLoop
 from transformers import set_seed
@@ -66,7 +69,20 @@ def main():
             class_cond=args.class_cond,
         )
         data_valid = None
-
+    elif is_midi_task(args):
+        # do midi staff
+        data = create_midi_dataloader(
+            batch_size=args.batch_size,
+            data_args=args,
+        )
+        next(data)
+        embedding_model = load_embedding_model(args)
+        data_valid = create_midi_dataloader(
+            batch_size=args.batch_size,
+            data_args=args,
+            split='valid',
+            embedding_model=embedding_model
+        )
     else:
         print('load data', '*'*50)
         if args.modality == 'roc-aug' or args.modality == 'commonGen-aug':
@@ -132,10 +148,13 @@ def main():
     # while not os.path.exists(os.path.join(args.checkpoint_path, 'vocab.json')):
     #     time.sleep(1)
     def get_mapping_func(args, diffusion, data):
-        model2, _ = load_models(
-            args.modality, args.experiment, args.model_name_or_path,
-            args.in_channel, args.checkpoint_path, extra_args=args
-        )
+        if is_midi_task(args):
+            model2 = load_embedding_model(args)
+        else:
+            model2, _ = load_models(
+                args.modality, args.experiment, args.model_name_or_path,
+                args.in_channel, args.checkpoint_path, extra_args=args
+            )
         model3 = get_weights(model2, args)  # 设置成不需要grad
         print(model3, model3.weight.requires_grad)
         # loss function，提前赋值进 args & embedding model，然后塞给diffusion

@@ -71,7 +71,7 @@ class MidiDataset(Dataset):
 
 
 def create_midi_dataloader(
-        *, batch_size, data_args=None, split='train'
+        *, batch_size, data_args=None, split='train', embedding_model=None
 ):
     """
     lower the complexity for now.
@@ -83,12 +83,13 @@ def create_midi_dataloader(
         tokenizer.midi_to_tokens(MidiFile(os.path.join(data_args.data_path, split, midi_file_name)))[0]
         for midi_file_name in os.listdir(os.path.join(data_args.data_path, split))
     ]  # will have a very long size for each
-    model = __create_embedding_model(data_args, vocab_size=len(tokenizer.vocab))
+    if not embedding_model:
+        embedding_model = __create_embedding_model(data_args, vocab_size=len(tokenizer.vocab))
     padded_tokens_list = __padding(data_args, tokens_list, data_args.image_size ** 2)
     data_list = [
         {
             'input_ids': padded_tokens, 
-            'hidden_states': model(torch.tensor(padded_tokens)).cpu().tolist()
+            'hidden_states': embedding_model(torch.tensor(padded_tokens)).cpu().tolist()
         }
         for padded_tokens in padded_tokens_list
     ]
