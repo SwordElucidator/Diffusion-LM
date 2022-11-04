@@ -25,6 +25,7 @@ def __padding(data_args, tokens_list, block_size) -> List[List[int]]:
         print('using block padding')
         concatenated_tokens = sum(tokens_list, [])
         total_length = (len(concatenated_tokens) // block_size) * block_size
+        print(f'total length: {total_length}')
         return [concatenated_tokens[i: i + block_size] for i in range(0, total_length, block_size)]
     raise NotImplementedError
 
