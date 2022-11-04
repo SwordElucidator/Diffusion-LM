@@ -87,6 +87,7 @@ def load_data_text(
             model_emb=model
         )
     else:
+        # training data: {train: [ { input_ids: [] * 64, hidden_states: [] * 64  } ] * data_length}
         dataset = TextDataset(
             training_data,
             image_size,
@@ -94,11 +95,11 @@ def load_data_text(
             model_arch=data_args.model_arch,  # transformer for NLP
         )
 
-    if deterministic:
+    if deterministic:  # false
 
         data_loader = DataLoader(
             dataset,
-            batch_size=batch_size,  # 20,
+            batch_size=batch_size,  # 64,
             drop_last=True,
             shuffle=False,
             num_workers=1,
@@ -107,7 +108,7 @@ def load_data_text(
     else:
         data_loader = DataLoader(
             dataset,
-            batch_size=batch_size,  # 20,
+            batch_size=batch_size,  # 64,
             drop_last=True,
             shuffle=True,
             num_workers=1,
@@ -249,10 +250,12 @@ def helper_tokenize_encode(sentence_lst, vocab_dict, model, seqlen, data_args, p
 
         if padding_mode == 'block':
             print('padding mode is block')
+            # concatenate all examples to a long one  -> a list of all the words concatenated  (~> 1m length)
             concatenated_examples = {k: sum(group_lst[k], []) for k in group_lst.keys()}
+            # 其实就是word_ids一个key，写的这么麻烦。。 大概有1m+
             total_length = len(concatenated_examples[list(group_lst.keys())[0]])
-            block_size = seqlen
-            total_length = (total_length // block_size) * block_size
+            block_size = seqlen  # one seq for len = 64 =  8**2 from image size
+            total_length = (total_length // block_size) * block_size  # remove last parts
             # Split by chunks of max_len.
             group_lst = {
                 k: [t[i: i + block_size] for i in range(0, total_length, block_size)]
@@ -572,8 +575,6 @@ def get_corpus_rocstory(data_args, model, image_size, padding_mode='block',
             else:
                 assert False, "invalid type of vocab_dict"
 
-
-
     if model is None and data_args.experiment == 'random':
         model = torch.nn.Embedding(len(vocab_dict), data_args.in_channel)
         print('initializing the random embeddings', model)
@@ -599,6 +600,7 @@ def get_corpus_rocstory(data_args, model, image_size, padding_mode='block',
         train_dataset = helper_tokenize_stream(sentence_lst, vocab_dict, model, image_size**2, data_args, padding_mode)
         return train_dataset, model
     elif data_args.experiment_mode == 'lm':
+        # model: Embedding(len(vocab_dict), dim=data_args.in_channel)
         result_train_lst = helper_tokenize_encode(sentence_lst, vocab_dict, model, image_size**2, data_args, padding_mode)
     elif data_args.experiment_mode == 'conditional_gen':
         result_train_lst = helper_tokenize_encode_cond(sentence_lst, vocab_dict, model, image_size ** 2, data_args)

@@ -103,7 +103,7 @@ def main():
             load_vocab=rev_tokenizer,
             model=model22,
         )
-        next(data)
+        next(data)  # [ 64 * 64 * 16 ] for e2e
         embedding_model, tokenizer = load_models(
             args.modality, args.experiment, args.model_name_or_path, args.in_channel,
             args.checkpoint_path, extra_args=args
