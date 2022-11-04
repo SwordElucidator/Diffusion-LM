@@ -22,6 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--m', type=int, default=3, help='')
     parser.add_argument('--k', type=int, default=32, help='')
     parser.add_argument('--lr_anneal_steps', type=int, default=400000, help='')
+    parser.add_argument('--save_interval', type=int, default=50000, help='')
     parser.add_argument('--num_res_blocks', type=int, default=2, help='')
 
     parser.add_argument('--lr', type=float, default=1e-04, help='')
@@ -101,7 +102,7 @@ if __name__ == '__main__':
                   f"--checkpoint_path {Model_FILE} " \
                   f"--model_arch {args.model_arch} " \
                   f"--modality {args.modality} " \
-                  f"--save_interval 50000 --lr {args.lr} " \
+                  f"--save_interval {args.save_interval} --lr {args.lr} " \
                   f"--batch_size {args.bsz}  " \
                   f"--diffusion_steps {args.diff_steps} " \
                   f"--noise_schedule {args.noise_schedule} {train_setup} " \
