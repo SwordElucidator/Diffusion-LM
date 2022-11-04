@@ -221,6 +221,7 @@ def create_argparser():
                          e2e_train='e2e_data',
                          yelp_train='diffusion_lm/yelpnlg-resources/yelpnlg-corpus',
                          commonGen_train = 'diffusion_lm/common-gen/commongen_data',
+                         data_path='../datasets/midi/giant_midi_piano',
                          emb_scale_factor=1.0, noise_level=0.0, cache_mode='no', use_bert_tokenizer='no',
                          padding_mode='block',
                          preprocessing_num_workers=1)
