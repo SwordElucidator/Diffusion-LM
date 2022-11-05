@@ -32,6 +32,8 @@ from improved_diffusion.script_util import (
 def main():
     set_seed(101)
     args = create_argparser().parse_args()
+    print('Start with args:')
+    print(args.__dict__)
 
     dist_util.setup_dist()
     logger.configure()
