@@ -256,6 +256,7 @@ def helper_tokenize_encode(sentence_lst, vocab_dict, model, seqlen, data_args, p
             total_length = len(concatenated_examples[list(group_lst.keys())[0]])
             block_size = seqlen  # one seq for len = 64 =  8**2 from image size
             total_length = (total_length // block_size) * block_size  # remove last parts
+            print(f'total length: {total_length}')
             # Split by chunks of max_len.
             group_lst = {
                 k: [t[i: i + block_size] for i in range(0, total_length, block_size)]

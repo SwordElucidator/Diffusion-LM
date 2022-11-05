@@ -74,6 +74,7 @@ def main():
         data = create_midi_dataloader(
             batch_size=args.batch_size,
             data_args=args,
+            dataset_partition=args.dataset_partition
         )
         next(data)
         embedding_model = load_embedding_model(args)
@@ -81,7 +82,8 @@ def main():
             batch_size=args.batch_size,
             data_args=args,
             split='valid',
-            embedding_model=embedding_model
+            embedding_model=embedding_model,
+            dataset_partition=args.dataset_partition
         )
     else:
         print('load data', '*'*50)
@@ -208,7 +210,8 @@ def create_argparser():
         seed=101,
         gradient_clipping=-1.0,
         eval_interval=2000,
-        checkpoint_path='diff_models'
+        checkpoint_path='diff_models',
+        dataset_partition=1,
     )
     text_defaults = dict(modality='text',
                          dataset_name='wikitext',

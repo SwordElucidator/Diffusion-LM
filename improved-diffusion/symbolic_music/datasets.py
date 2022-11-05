@@ -1,3 +1,5 @@
+import random
+
 import torch
 from miditok import MIDILike
 from miditoolkit import MidiFile
@@ -72,7 +74,7 @@ class MidiDataset(Dataset):
 
 
 def create_midi_dataloader(
-        *, batch_size, data_args=None, split='train', embedding_model=None
+        *, batch_size, data_args=None, split='train', embedding_model=None, dataset_partition=1
 ):
     """
     lower the complexity for now.
@@ -82,6 +84,8 @@ def create_midi_dataloader(
     # data_args.data_path
     tokens_list = []
     for midi_file_name in os.listdir(os.path.join(data_args.data_path, split)):
+        if random.random() > dataset_partition:
+            continue
         if midi_file_name.endswith('.mid'):
             # will have a very long size for each
             tokens = tokenizer.midi_to_tokens(MidiFile(os.path.join(data_args.data_path, split, midi_file_name)))
@@ -97,6 +101,7 @@ def create_midi_dataloader(
         }
         for padded_tokens in padded_tokens_list
     ]
+
     dataset = MidiDataset(
         data_list,
         data_args.image_size,

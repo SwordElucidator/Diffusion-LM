@@ -36,6 +36,8 @@ if __name__ == '__main__':
     parser.add_argument('--use_big', type=str, default='no', help='')
     parser.add_argument('--app', type=str, default='', help='')
 
+    parser.add_argument('--dataset_partition', type=float, default=1, help='how much of data to use')
+
     args = parser.parse_args()
 
     folder_name = "diffusion_models/"
