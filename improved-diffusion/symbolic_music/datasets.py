@@ -80,9 +80,11 @@ def create_midi_dataloader(
     lower the complexity for now.
     Will add more experiments later
     """
+    print("Creating midi dataloader...")
     tokenizer = MIDILike(sos_eos_tokens=True, mask=False)
     # data_args.data_path
     tokens_list = []
+    print(f"Start tokenize files in {os.path.join(data_args.data_path, split)} with partition={dataset_partition}")
     for midi_file_name in os.listdir(os.path.join(data_args.data_path, split)):
         if random.random() > dataset_partition:
             continue
@@ -90,9 +92,10 @@ def create_midi_dataloader(
             # will have a very long size for each
             tokens = tokenizer.midi_to_tokens(MidiFile(os.path.join(data_args.data_path, split, midi_file_name)))
             tokens_list.append(tokens[0])
-
+    print(f'Finish tokenize {len(tokens_list)} items')
     if not embedding_model:
         embedding_model = __create_embedding_model(data_args, vocab_size=len(tokenizer.vocab))
+    print(f"Start padding...")
     padded_tokens_list = __padding(data_args, tokens_list, data_args.image_size ** 2)
     data_list = [
         {

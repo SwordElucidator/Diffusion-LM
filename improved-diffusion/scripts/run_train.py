@@ -105,6 +105,7 @@ if __name__ == '__main__':
                   f"--model_arch {args.model_arch} " \
                   f"--modality {args.modality} " \
                   f"--save_interval {args.save_interval} --lr {args.lr} " \
+                  f"--dataset_partition {args.dataset_partition}  " \
                   f"--batch_size {args.bsz}  " \
                   f"--diffusion_steps {args.diff_steps} " \
                   f"--noise_schedule {args.noise_schedule} {train_setup} " \

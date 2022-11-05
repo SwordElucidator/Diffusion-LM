@@ -211,7 +211,7 @@ def create_argparser():
         gradient_clipping=-1.0,
         eval_interval=2000,
         checkpoint_path='diff_models',
-        dataset_partition=1,
+        dataset_partition=1.0,
     )
     text_defaults = dict(modality='text',
                          dataset_name='wikitext',
