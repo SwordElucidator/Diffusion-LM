@@ -7,8 +7,12 @@ import argparse
 import os, json
 
 import numpy as np
+import torch
 import torch as th
 import torch.distributed as dist
+
+from symbolic_music.rounding import load_embedding_model, tokenize_e2e
+from symbolic_music.utils import is_midi_task
 from transformers import set_seed
 from improved_diffusion.rounding import rounding_func, load_models, load_tokenizer
 
@@ -44,7 +48,8 @@ def main():
 
     # args.diffusion_steps = 200 #500  # DEBUG
 
-    if args.experiment == 'random1': args.experiment = 'random'
+    if args.experiment == 'random1':
+        args.experiment = 'random'
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
@@ -59,9 +64,7 @@ def main():
     # diffusion.rescale_timesteps = False  # DEBUG --> REMOVE
     print(diffusion.rescale_timesteps, 'a marker for whether we are in the debug mode')
     model.to(dist_util.dev())
-    model.eval() # DEBUG
-
-
+    model.eval()  # DEBUG
 
     if args.experiment_mode == 'conditional_gen':
         from improved_diffusion.text_datasets import load_data_text
@@ -85,8 +88,13 @@ def main():
             load_vocab=rev_tokenizer,
         )
 
-    model2, tokenizer = load_models(args.modality, args.experiment, args.model_name_or_path, args.in_channel,
-                                    os.path.split(args.model_path)[0])
+    if is_midi_task(args):
+        model2 = load_embedding_model(args)
+    else:
+        model2, _ = load_models(
+            args.modality, args.experiment, args.model_name_or_path, args.in_channel,
+            os.path.split(args.model_path)[0]
+        )
     if args.training_mode.startswith('e2e'):
         print('e2e, load the right model embeddings', '*'*80)
         model2.weight = th.nn.Parameter(model.word_embedding.weight.clone().cpu())
@@ -98,7 +106,7 @@ def main():
     model3 = get_weights(model2, args)
     while len(all_images) * args.batch_size < args.num_samples:
         model_kwargs = {}
-        if args.experiment_mode == 'conditional_gen':
+        if args.experiment_mode == 'conditional_gen':  # TODO condition
             batch, model_kwargs = next(data)
             model_kwargs.pop('input_ids')
             if args.mbr_sample > 1:
@@ -119,7 +127,7 @@ def main():
                 sample_shape = (args.batch_size * args.mbr_sample, args.in_channel, args.image_size ** 2)
             else:
                 sample_shape = (args.batch_size,  args.in_channel, args.image_size ** 2)
-        else:
+        else:  # trans-unet
             if args.mbr_sample > 1 and args.experiment_mode == 'conditional_gen':
                 sample_shape = (args.batch_size * args.mbr_sample, args.image_size ** 2, args.in_channel)
             else:
@@ -129,7 +137,7 @@ def main():
             model,
             sample_shape,
             clip_denoised=args.clip_denoised,
-            denoised_fn=partial(denoised_fn_round, args, model3.cuda()) if args.clamp == 'clamp' else None,
+            denoised_fn=partial(denoised_fn_round, args, model3.cuda() if torch.cuda.is_available() else model3) if args.clamp == 'clamp' else None,
             model_kwargs=model_kwargs,
             top_p =args.top_p,
         )
@@ -138,27 +146,6 @@ def main():
             print(sample.shape)
             sample = sample.permute(0, 2, 1)
         print(sample.shape)
-
-        # if diffusion.training_mode.startswith('e2e'):
-        #     word_lst_e2e = []
-        #     print('decoding for e2e', )
-        #     print(sample.shape)
-        #     x_t = sample
-        #     if args.model_arch == 'conv-unet':
-        #         reshaped_x_t = x_t.view(x_t.size(0), -1, x_t.size(-1))
-        #     else:
-        #         reshaped_x_t = x_t
-        #     logits = model.get_logits(reshaped_x_t)  # bsz, seqlen, vocab
-        #     cands = th.topk(logits, k=1, dim=-1)
-        #     sample = cands.indices
-        #     tokenizer = load_tokenizer(args.modality, args.experiment, os.path.split(args.model_path)[0])
-        #     for seq in cands.indices:
-        #         if isinstance(tokenizer, dict):
-        #             tokens = " ".join([tokenizer[x[0].item()] for x in seq])
-        #         else:
-        #             tokens = tokenizer.decode(seq.squeeze(-1))
-        #         word_lst_e2e.append(tokens)
-
 
         gathered_samples = [th.zeros_like(sample) for _ in range(dist.get_world_size())]
         dist.all_gather(gathered_samples, sample)  # gather not supported with NCCL
@@ -179,30 +166,32 @@ def main():
         word_lst_e2e = []
         print('decoding for e2e', )
         print(arr.shape)
-        x_t = th.tensor(arr).cuda()
+        x_t = th.tensor(arr).cuda() if torch.cuda.is_available() else th.tensor(arr)  # for debug
         if args.model_arch == 'conv-unet':
             reshaped_x_t = x_t.view(x_t.size(0), -1, x_t.size(-1))
         else:
             reshaped_x_t = x_t
         logits = model.get_logits(reshaped_x_t)  # bsz, seqlen, vocab
         cands = th.topk(logits, k=1, dim=-1)
-        sample = cands.indices
-        tokenizer = load_tokenizer(args.modality, args.experiment, os.path.split(args.model_path)[0])
-        for seq in cands.indices:
-            if isinstance(tokenizer, dict):
-                tokens = " ".join([tokenizer[x[0].item()] for x in seq])
-            else:
-                tokens = tokenizer.decode(seq.squeeze(-1))
-            word_lst_e2e.append(tokens)
+        print(f"cands is {cands}")
+        # TODO check tokenizer and fix
+        if is_midi_task(args):
+            word_lst_e2e = tokenize_e2e(args, cands.indices)
+        else:
+            tokenizer = load_tokenizer(args.modality, args.experiment, os.path.split(args.model_path)[0])
+            for seq in cands.indices:
+                if isinstance(tokenizer, dict):
+                    tokens = " ".join([tokenizer[x[0].item()] for x in seq])
+                else:
+                    tokens = tokenizer.decode(seq.squeeze(-1))
+                word_lst_e2e.append(tokens)
 
     if args.class_cond:
         label_arr = np.concatenate(all_labels, axis=0)
         label_arr = label_arr[: args.num_samples]
     if dist.get_rank() == 0:
-        shape_str = "x".join([str(x) for x in arr.shape])
         model_base_name = os.path.basename(os.path.split(args.model_path)[0]) + f'.{os.path.split(args.model_path)[1]}'
         out_path = os.path.join(args.out_dir, f"{model_base_name}.samples_{args.top_p}.npz")
-        # out_path = os.path.join(logger.get_dir(), f"samples_{shape_str}.npz")
         logger.log(f"saving to {out_path}")
         if args.class_cond:
             np.savez(out_path, arr, label_arr)
@@ -219,31 +208,41 @@ def main():
             word_lst = word_lst_e2e
         else:
             set_seed(101)
-            model, tokenizer = load_models(args.modality, args.experiment, args.model_name_or_path, args.in_channel,
-                                           os.path.split(args.model_path)[0])
+            if is_midi_task(args):
+                model2 = load_embedding_model(args)
+                # TODO tokenizer
+                raise NotImplementedError
+            else:
+                model, tokenizer = load_models(args.modality, args.experiment, args.model_name_or_path, args.in_channel,
+                                               os.path.split(args.model_path)[0])
             print('rounding')
             word_lst = rounding_func(args.experiment, arr, model, tokenizer,
                                      emb_scale_factor=args.emb_scale_factor)
+        if is_midi_task(args):
+            midi_lst = word_lst
+            for i, midi in enumerate(midi_lst):
+                out_path2 = os.path.join(args.out_dir, f"{model_base_name}.samples_{args.top_p}_{i}.mid")
+                midi.dump(out_path2)
+        else:
+            out_path2 = os.path.join(args.out_dir, f"{model_base_name}.samples_{args.top_p}.txt")
+            fout = open(out_path2, 'w')
 
-        out_path2 = os.path.join(args.out_dir, f"{model_base_name}.samples_{args.top_p}.txt")
-        fout = open(out_path2, 'w')
+            for (xx) in zip( word_lst):
+                # print('---' * 30)
+                # print(tokenizer.decode(gg.tolist()))
+                # print('xx' * 30)
+                print(xx[0], file=fout)
+                # print('---' * 30)
+            fout.close()
+            print(f'written the decoded output to {out_path2}')
 
-        for (xx) in zip( word_lst):
-            # print('---' * 30)
-            # print(tokenizer.decode(gg.tolist()))
-            # print('xx' * 30)
-            print(xx[0], file=fout)
-            # print('---' * 30)
-        fout.close()
-        print(f'written the decoded output to {out_path2}')
-
-        ##############
-        out_path2 = os.path.join(args.out_dir, f"{model_base_name}.samples_{args.top_p}.json")
-        fout = open(out_path2, 'w')
-        for (xx) in zip(word_lst):
-            print(json.dumps(xx), file=fout)
-        fout.close()
-        print(f'written the decoded output to {out_path2}')
+            ##############
+            out_path2 = os.path.join(args.out_dir, f"{model_base_name}.samples_{args.top_p}.json")
+            fout = open(out_path2, 'w')
+            for (xx) in zip(word_lst):
+                print(json.dumps(xx), file=fout)
+            fout.close()
+            print(f'written the decoded output to {out_path2}')
 
 
 
