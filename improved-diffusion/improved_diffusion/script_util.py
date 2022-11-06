@@ -5,7 +5,7 @@ from . import gaussian_diffusion as gd
 from .respace import SpacedDiffusion, space_timesteps
 from .unet import SuperResModel, UNetModel
 from .transformer_model import TransUNetModel
-from .transformer_model2 import TransformerNetModel, TransformerNetModel2
+from .transformer_model2 import TransformerNetModel2
 NUM_CLASSES = 1000
 
 
