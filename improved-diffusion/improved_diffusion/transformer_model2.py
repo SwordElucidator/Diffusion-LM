@@ -77,7 +77,6 @@ class TransformerNetModel2(nn.Module):
         if training_mode == 'e2e':
             self.word_embedding = nn.Embedding(vocab_size, self.in_channels)
             if self.logits_mode == 2:
-                # self.lm_head = nn.Linear(self.in_channels, vocab_size, bias=False)
                 self.lm_head = nn.Linear(self.in_channels, vocab_size, bias=True)
             else:
                 self.lm_head = nn.Linear(self.in_channels, vocab_size)
@@ -100,6 +99,7 @@ class TransformerNetModel2(nn.Module):
             self.conditional_gen = False
 
         time_embed_dim = model_channels * 4
+        #
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
             SiLU(),
@@ -150,18 +150,9 @@ class TransformerNetModel2(nn.Module):
                                                                hidden_repr.size(1)) # vocab, bsz*seqlen
             scores = -scores.permute(1, 2, 0).contiguous()
 
-            #
-            # scores1 = th.cdist(self.lm_head.weight.unsqueeze(0), hidden_repr, p=2)
-            # scores1 = -scores1.permute(0, 2, 1).contiguous()
-            #
-            # print(scores1.shape, scores.shape)
-            # print(scores1[0,0], scores[0,0])
-            # print(torch.isclose(scores1, scores))
-
             return scores
         else:
             raise NotImplementedError
-
 
     def forward(self, x, timesteps, y=None, src_ids=None, src_mask=None):
         """
@@ -177,7 +168,6 @@ class TransformerNetModel2(nn.Module):
             self.num_classes is not None
         ), "must specify y if and only if the model is class-conditional"
 
-        hs = []
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
 
         if self.conditional_gen:
@@ -188,12 +178,9 @@ class TransformerNetModel2(nn.Module):
             encoder_hidden_states = self.encoder(src_emb).last_hidden_state
             encoder_attention_mask = src_mask.unsqueeze(1).unsqueeze(1)
 
-
-
         if self.num_classes is not None:
             assert y.shape == (x.shape[0],)
             emb = emb + self.label_emb(y)
-
 
         emb_x = self.input_up_proj(x)
         seq_length = x.size(1)
