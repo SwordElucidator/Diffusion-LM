@@ -32,7 +32,7 @@ def __padding(data_args, tokens_list, block_size) -> List[List[int]]:
     if data_args.padding_mode == 'pad_and_truncate':
         print('using pad & truncate padding')
         return [
-            tokens[0: block_size] + [0] * max(0, len(tokens) - block_size) for tokens in tokens_list
+            tokens[0: block_size] + [0] * max(0, block_size - len(tokens)) for tokens in tokens_list
         ]
     raise NotImplementedError
 
