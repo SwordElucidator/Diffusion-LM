@@ -96,7 +96,11 @@ def create_midi_dataloader(
         if midi_file_name.endswith('.mid'):
             # will have a very long size for each
             tokens = tokenizer.midi_to_tokens(MidiFile(os.path.join(data_args.data_path, split, midi_file_name)))
-            tokens_list.append(tokens[0])
+            try:
+                tokens_list.append(tokens[0])
+            except Exception as e:
+                print(f'error on {midi_file_name}')
+                print(e)
     print(f'Finish tokenize {len(tokens_list)} items')
     if not embedding_model:
         embedding_model = __create_embedding_model(data_args, vocab_size=len(tokenizer.vocab))
