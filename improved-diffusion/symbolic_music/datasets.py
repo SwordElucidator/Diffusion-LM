@@ -29,6 +29,11 @@ def __padding(data_args, tokens_list, block_size) -> List[List[int]]:
         total_length = (len(concatenated_tokens) // block_size) * block_size
         print(f'total length: {total_length}')
         return [concatenated_tokens[i: i + block_size] for i in range(0, total_length, block_size)]
+    if data_args.padding_mode == 'pad_and_truncate':
+        print('using pad & truncate padding')
+        return [
+            tokens[0: block_size] + [0] * max(0, len(tokens) - block_size) for tokens in tokens_list
+        ]
     raise NotImplementedError
 
 
@@ -81,7 +86,7 @@ def create_midi_dataloader(
     Will add more experiments later
     """
     print("Creating midi dataloader...")
-    tokenizer = MIDILike(sos_eos_tokens=True, mask=False)
+    tokenizer = MIDILike(sos_eos_tokens=True, mask=False)  # it's ok to always add a mask token
     # data_args.data_path
     tokens_list = []
     print(f"Start tokenize files in {os.path.join(data_args.data_path, split)} with partition={dataset_partition}")

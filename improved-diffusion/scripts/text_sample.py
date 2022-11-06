@@ -5,6 +5,7 @@ numpy array. This can be used to produce samples for FID evaluation.
 
 import argparse
 import os, json
+import time
 
 import numpy as np
 import torch
@@ -102,6 +103,7 @@ def main():
         model2.weight = th.nn.Parameter(model.word_embedding.weight.clone().cpu())
 
     logger.log("sampling...")
+    start = time.time()
     all_images = []
     all_labels = []
     print(args.num_samples)
@@ -129,7 +131,7 @@ def main():
                 sample_shape = (args.batch_size * args.mbr_sample, args.in_channel, args.image_size ** 2)
             else:
                 sample_shape = (args.batch_size,  args.in_channel, args.image_size ** 2)
-        else:  # trans-unet
+        else:  # transformer
             if args.mbr_sample > 1 and args.experiment_mode == 'conditional_gen':
                 sample_shape = (args.batch_size * args.mbr_sample, args.image_size ** 2, args.in_channel)
             else:
@@ -202,6 +204,7 @@ def main():
 
     dist.barrier()
     logger.log("sampling complete")
+    print(f'Sample cost time: {time.time() - start}')
 
     if args.verbose == 'yes':
         logger.log('decode by rounding. ')

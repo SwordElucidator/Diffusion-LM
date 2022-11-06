@@ -18,7 +18,7 @@ from improved_diffusion.script_util import (
     add_dict_to_argparser,
     args_to_dict,
 )
-
+# TODO should clean up sampling and make it easier to use
 
 def create_argparser():
     defaults = dict(
