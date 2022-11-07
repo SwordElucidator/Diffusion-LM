@@ -168,5 +168,6 @@ def create_midi_dataloader(
         shuffle=True,
         num_workers=1,
     )
+    print('Finish making DataLoader...')
     while True:
         yield from data_loader

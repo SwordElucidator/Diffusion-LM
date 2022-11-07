@@ -78,6 +78,7 @@ def main():
             dataset_partition=args.dataset_partition,
             embedding_model=None
         )
+        logger.log(f'Finish load training data loader...')
         next(data)
         logger.log(f'Load embedding data...')
         embedding_model = load_embedding_model(args)
@@ -89,6 +90,7 @@ def main():
             embedding_model=embedding_model,
             dataset_partition=args.dataset_partition
         )
+        logger.log(f'Finish load validation data loader...')
     else:
         print('load data', '*'*50)
         if args.modality == 'roc-aug' or args.modality == 'commonGen-aug':
