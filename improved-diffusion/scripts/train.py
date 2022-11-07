@@ -71,6 +71,7 @@ def main():
         data_valid = None
     elif is_midi_task(args):
         # do midi staff
+        logger.log(f'Load training data...')
         data = create_midi_dataloader(
             batch_size=args.batch_size,
             data_args=args,
@@ -79,6 +80,7 @@ def main():
         )
         next(data)
         embedding_model = load_embedding_model(args)
+        logger.log(f'Load validation data...')
         data_valid = create_midi_dataloader(
             batch_size=args.batch_size,
             data_args=args,
@@ -145,6 +147,8 @@ def main():
             load_vocab=rev_tokenizer,
             model=embedding_model,
         )
+
+    logger.log("Start mapping...")
 
     # dist.barrier()
     # import time

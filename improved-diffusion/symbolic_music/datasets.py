@@ -68,10 +68,7 @@ class MidiDataset(Dataset):
             arr = arr.reshape(old_shape)
 
         if hasattr(self.data_args, 'noise_level') and self.data_args.noise_level > 0:
-            # print(arr.dtype)
-            # print(self.data_args.noise_level, 'using the noise level.')
             arr = arr + self.data_args.noise_level * np.random.randn(*arr.shape).astype(arr.dtype)
-            # print(arr.dtype)
 
         out_dict = {'input_ids': np.array(self.midi_data_list[idx]['input_ids'])}
         if self.data_args.experiment_mode == 'conditional_gen':  # TODO not implementing conditional gen for now

@@ -185,7 +185,7 @@ class TransformerNetModel2(nn.Module):
         emb_x = self.input_up_proj(x)
         seq_length = x.size(1)
         position_ids = self.position_ids[:, : seq_length ]
-        # print(emb_x.shape, emb.shape, self.position_embeddings)
+        print(emb_x.shape, emb.shape, self.position_embeddings)
         emb_inputs = self.position_embeddings(position_ids) + emb_x + emb.unsqueeze(1).expand(-1, seq_length, -1)
         emb_inputs = self.dropout(self.LayerNorm(emb_inputs))
         if self.conditional_gen:
