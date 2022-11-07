@@ -137,11 +137,11 @@ def create_midi_dataloader(
         print('reusing tokenized data...')
         try:
             data_list = np.load(to_save_data_path, allow_pickle=True)['arr_0']
-            print('Pre-embedded data list loaded.')
+            print(f'Pre-embedded data list loaded from {to_save_data_path}.')
         except FileNotFoundError:
             try:
                 padded_tokens_list = np.load(to_save_token_list_path)['arr_0']
-                print('Pre-padded token list loaded.')
+                print(f'Pre-padded token list loaded from {to_save_data_path}.')
             except FileNotFoundError:
                 pass
     if data_list is None:
