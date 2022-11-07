@@ -103,11 +103,13 @@ def __generate_input_ids(data_args, split, dataset_partition, embedding_model, t
         embedding_model = __create_embedding_model(data_args, vocab_size=len(tokenizer.vocab))
     print(f"Start padding...")
     padded_tokens_list = __padding(data_args, tokens_list, data_args.image_size ** 2)
+    print(f"Save padded data...")
     np.savez(to_save_token_list_path, padded_tokens_list)
     return padded_tokens_list, embedding_model
 
 
 def __generate_data_list(padded_tokens_list, embedding_model, to_save_data_path):
+    print('Start hidden state embedding...')
     data_list = [
         {
             'input_ids': padded_tokens,
@@ -115,6 +117,7 @@ def __generate_data_list(padded_tokens_list, embedding_model, to_save_data_path)
         }
         for padded_tokens in padded_tokens_list
     ]
+    print('Save hidden state embedding...')
     np.savez(to_save_data_path, data_list)
     return data_list
 
@@ -150,12 +153,14 @@ def create_midi_dataloader(
             tokenizer = MIDILike(sos_eos_tokens=True, mask=False)
             embedding_model = __create_embedding_model(data_args, vocab_size=len(tokenizer.vocab))
         data_list = __generate_data_list(padded_tokens_list, embedding_model, to_save_data_path)
+    print('Making Dataset...')
     dataset = MidiDataset(
         data_list,
         data_args.image_size,
         data_args,
         model_arch=data_args.model_arch,  # transformer for NLP / MIDI, or probably use better music transformer? TODO
     )
+    print('Making DataLoader...')
     data_loader = DataLoader(
         dataset,
         batch_size=batch_size,  # 64,

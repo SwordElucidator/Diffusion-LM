@@ -79,6 +79,7 @@ def main():
             embedding_model=None
         )
         next(data)
+        logger.log(f'Load embedding data...')
         embedding_model = load_embedding_model(args)
         logger.log(f'Load validation data...')
         data_valid = create_midi_dataloader(
