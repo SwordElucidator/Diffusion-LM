@@ -37,6 +37,7 @@ if __name__ == '__main__':
     parser.add_argument('--app', type=str, default='', help='')
 
     parser.add_argument('--dataset_partition', type=float, default=1, help='how much of data to use')
+    parser.add_argument('--reuse_tokenized_data', type=bool, default=False, help='whether use tokenized data')
 
     args = parser.parse_args()
 
@@ -106,6 +107,7 @@ if __name__ == '__main__':
                   f"--modality {args.modality} " \
                   f"--save_interval {args.save_interval} --lr {args.lr} " \
                   f"--dataset_partition {args.dataset_partition}  " \
+                  f"--reuse_tokenized_data {args.reuse_tokenized_data}  " \
                   f"--batch_size {args.bsz}  " \
                   f"--diffusion_steps {args.diff_steps} " \
                   f"--noise_schedule {args.noise_schedule} {train_setup} " \

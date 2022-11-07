@@ -74,7 +74,8 @@ def main():
         data = create_midi_dataloader(
             batch_size=args.batch_size,
             data_args=args,
-            dataset_partition=args.dataset_partition
+            dataset_partition=args.dataset_partition,
+            embedding_model=None
         )
         next(data)
         embedding_model = load_embedding_model(args)
@@ -161,7 +162,7 @@ def main():
         print(model3, model3.weight.requires_grad)
         # loss function，提前赋值进 args & embedding model，然后塞给diffusion
         mapping_func = partial(
-            compute_logp, args, model3.cuda()
+            compute_logp, args, model3.cuda() if torch.cuda.is_available() else model3
         )
         diffusion.mapping_func = mapping_func
         return mapping_func
@@ -223,11 +224,12 @@ def create_argparser():
                          wiki_train='diffusion_lm/simple_wiki/data.v1.split/simple.training.txt',
                          e2e_train='e2e_data',
                          yelp_train='diffusion_lm/yelpnlg-resources/yelpnlg-corpus',
-                         commonGen_train = 'diffusion_lm/common-gen/commongen_data',
+                         commonGen_train='diffusion_lm/common-gen/commongen_data',
                          data_path='../datasets/midi/giant_midi_piano',
                          emb_scale_factor=1.0, noise_level=0.0, cache_mode='no', use_bert_tokenizer='no',
                          padding_mode='block',
-                         preprocessing_num_workers=1)
+                         preprocessing_num_workers=1,
+                         reuse_tokenized_data=False)
     defaults.update(model_and_diffusion_defaults())
     defaults.update(text_defaults)
     parser = argparse.ArgumentParser()
