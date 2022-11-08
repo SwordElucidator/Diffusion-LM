@@ -109,10 +109,11 @@ class TransformerNetModel2(nn.Module):
         if self.num_classes is not None:
             self.label_emb = nn.Embedding(num_classes, time_embed_dim)
 
-
-        # self.input_up_proj = trans_nd(config, in_channels, model_channels // attention_head_size, attention_head_size)
-        self.input_up_proj = nn.Sequential(nn.Linear(in_channels, config.hidden_size),
-                                              nn.Tanh(), nn.Linear(config.hidden_size, config.hidden_size))
+        self.input_up_proj = nn.Sequential(
+            nn.Linear(in_channels, config.hidden_size),
+            nn.Tanh(),
+            nn.Linear(config.hidden_size, config.hidden_size)
+        )
         if init_pretrained:
             from transformers.models.bert.modeling_bert import BertModel
             temp_bert = BertModel.from_pretrained(config_name, config=config)
@@ -126,7 +127,6 @@ class TransformerNetModel2(nn.Module):
 
         self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
         self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
-        # self.token_type_embeddings = nn.Embedding(config.type_vocab_size, config.hidden_size)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
