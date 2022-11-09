@@ -96,16 +96,13 @@ def __tokenize(data_args, split, dataset_partition, tokenizer):
     return tokens_list
 
 
-def __generate_input_ids(data_args, split, dataset_partition, embedding_model, to_save_token_list_path):
-    tokenizer = MIDILike(sos_eos_tokens=True, mask=False)
+def __generate_input_ids(tokenizer, data_args, split, dataset_partition, to_save_token_list_path):
     tokens_list = __tokenize(data_args, split, dataset_partition, tokenizer)
-    if not embedding_model:
-        embedding_model = __create_embedding_model(data_args, vocab_size=len(tokenizer.vocab))
     print(f"Start padding...")
     padded_tokens_list = __padding(data_args, tokens_list, data_args.image_size ** 2)
     print(f"Save padded data...")
     np.savez(to_save_token_list_path, padded_tokens_list)
-    return padded_tokens_list, embedding_model
+    return padded_tokens_list
 
 
 def __generate_data_list(padded_tokens_list, embedding_model, to_save_data_path):
@@ -145,13 +142,12 @@ def create_midi_dataloader(
             except FileNotFoundError:
                 pass
     if data_list is None:
+        tokenizer = MIDILike(sos_eos_tokens=True, mask=False)
         if padded_tokens_list is None:
-            padded_tokens_list, embedding_model = __generate_input_ids(
-                data_args, split, dataset_partition, embedding_model, to_save_token_list_path
+            padded_tokens_list = __generate_input_ids(
+                tokenizer, data_args, split, dataset_partition, to_save_token_list_path
             )
-        else:
-            tokenizer = MIDILike(sos_eos_tokens=True, mask=False)
-            embedding_model = __create_embedding_model(data_args, vocab_size=len(tokenizer.vocab))
+        embedding_model = __create_embedding_model(data_args, vocab_size=len(tokenizer.vocab))
         data_list = __generate_data_list(padded_tokens_list, embedding_model, to_save_data_path)
     print('Making Dataset...')
     dataset = MidiDataset(
