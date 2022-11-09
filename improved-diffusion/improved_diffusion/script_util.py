@@ -236,7 +236,7 @@ def create_model(
             training_mode=training_mode,
             vocab_size=vocab_size,
         )
-    elif model_arch == 'transformer':
+    elif model_arch == 'transformer':  # will be use in our task
         if image_size == 256:
             channel_mult = (1, 1, 2, 2, 4, 4)
         elif image_size == 64:

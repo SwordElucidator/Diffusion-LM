@@ -23,8 +23,8 @@ from transformers import set_seed
 from functools import partial
 from improved_diffusion.test_util import get_weights, compute_logp
 from improved_diffusion.rounding import load_models, load_tokenizer
-import torch.distributed as dist
 import wandb
+
 
 def main():
     args = create_argparser().parse_args()
@@ -32,7 +32,7 @@ def main():
     dist_util.setup_dist() # DEBUG **
     logger.configure()
 
-    # 造扩散模型
+    # make the diffusion model
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
