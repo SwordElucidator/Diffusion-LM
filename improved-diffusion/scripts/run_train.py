@@ -39,6 +39,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_partition', type=float, default=1, help='how much of data to use')
     parser.add_argument('--reuse_tokenized_data', type=bool, default=False, help='whether use tokenized data')
     parser.add_argument('--midi_tokenizer', type=str, default='REMI', help='')
+    parser.add_argument('--data_path', type=str, default='../datasets/midi/giant_midi_piano', help='')
     args = parser.parse_args()
 
     folder_name = "diffusion_models/"
