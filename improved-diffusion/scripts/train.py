@@ -235,7 +235,8 @@ def create_argparser():
                          emb_scale_factor=1.0, noise_level=0.0, cache_mode='no', use_bert_tokenizer='no',
                          padding_mode='block',
                          preprocessing_num_workers=1,
-                         reuse_tokenized_data=False)
+                         reuse_tokenized_data=False,
+                         midi_tokenizer='REMI')
     defaults.update(model_and_diffusion_defaults())
     defaults.update(text_defaults)
     parser = argparse.ArgumentParser()

@@ -1,13 +1,14 @@
 import random
 
 import torch
-from miditok import MIDILike
+from miditok import MIDILike, REMI, Structured
 from miditoolkit import MidiFile
 import os
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
 from typing import List
 
+from improved_diffusion.text_datasets import _collate_batch_helper
 from symbolic_music.rounding import load_embedding_model
 
 
@@ -31,11 +32,10 @@ def __padding(data_args, tokens_list, block_size) -> List[List[int]]:
         total_length = (len(concatenated_tokens) // block_size) * block_size
         print(f'total length: {total_length}')
         return [concatenated_tokens[i: i + block_size] for i in range(0, total_length, block_size)]
-    if data_args.padding_mode == 'pad_and_truncate':
-        print('using pad & truncate padding')
-        return [
-            tokens[0: block_size] + [0] * max(0, block_size - len(tokens)) for tokens in tokens_list
-        ]
+    if data_args.padding_mode == 'pad':
+        print('using pad padding')
+        tokens_list = _collate_batch_helper(tokens_list, 0, block_size)
+        return tokens_list
     raise NotImplementedError
 
 
@@ -88,7 +88,7 @@ def __tokenize(data_args, split, dataset_partition, tokenizer):
             # will have a very long size for each
             tokens = tokenizer.midi_to_tokens(MidiFile(os.path.join(data_args.data_path, split, midi_file_name)))
             try:
-                tokens_list.append(tokens[0])
+                tokens_list.append([tokenizer.vocab['SOS_None']] + tokens[0] + [tokenizer.vocab['EOS_None']])
             except Exception as e:
                 print(f'error on {midi_file_name}')
                 print(e)
@@ -119,6 +119,15 @@ def __generate_data_list(padded_tokens_list, embedding_model, to_save_data_path)
     return data_list
 
 
+def get_tokenizer_cls(data_args):
+    cls = MIDILike
+    if data_args.midi_tokenizer == 'REMI':
+        cls = REMI
+    elif data_args.midi_tokenizer == 'Structured':
+        cls = Structured
+    return cls
+
+
 def create_midi_dataloader(
         *, batch_size, data_args=None, split='train', embedding_model=None, dataset_partition=1
 ):
@@ -142,7 +151,7 @@ def create_midi_dataloader(
             except FileNotFoundError:
                 pass
     if data_list is None:
-        tokenizer = MIDILike(sos_eos_tokens=True, mask=False)
+        tokenizer = get_tokenizer_cls(data_args)(sos_eos_tokens=True, mask=False)
         if padded_tokens_list is None:
             padded_tokens_list = __generate_input_ids(
                 tokenizer, data_args, split, dataset_partition, to_save_token_list_path

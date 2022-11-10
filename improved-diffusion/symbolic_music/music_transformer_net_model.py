@@ -1,3 +1,5 @@
+from symbolic_music.music_transformer_by_rpr import TransformerEncoderRPR, TransformerEncoderLayerRPR, \
+    create_encoder_by_config
 from transformers import AutoConfig
 from transformers.models.bert.modeling_bert import BertEncoder
 import torch
@@ -46,7 +48,7 @@ class MusicTransformerModel(nn.Module):
         if experiment_mode == 'conditional_gen':
             self.conditional_gen = True
             self.encoder_emb = nn.Embedding(vocab_size, config.hidden_size)
-            self.encoder = BertEncoder(config)
+            self.encoder = create_encoder_by_config(config)
             print(config, 'conditional_gen')
             config.is_decoder = True
             config.add_cross_attention = True
@@ -70,7 +72,7 @@ class MusicTransformerModel(nn.Module):
             nn.Linear(config.hidden_size, config.hidden_size)
         )
         print(config)
-        self.input_transformers = BertEncoder(config)
+        self.input_transformers = BertEncoder(config) # TODO
 
         self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
         self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)

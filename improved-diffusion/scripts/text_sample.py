@@ -30,7 +30,7 @@ from improved_diffusion.script_util import (
 )
 
 
-def main():
+def main():  # !!! don't use checkpoint_path from hyper
     set_seed(101)
     args = create_argparser().parse_args()
     print('Start with args:')
@@ -270,7 +270,7 @@ def create_argparser():
                          model_name_or_path='predictability/diff_models/compress_e=5_b=60_m=gpt2_wikitext-103-raw-v1_None',
                          experiment='gpt2_pre_compress', model_arch='trans-unet',
                          preprocessing_num_workers=1,
-                         emb_scale_factor=1.0, top_p=-1., split='valid', clamp='clamp')
+                         emb_scale_factor=1.0, top_p=-1., split='valid', clamp='clamp', midi_tokenizer='REMI')
     defaults.update(model_and_diffusion_defaults())
     defaults.update(text_defaults)
     # defaults.update(model_and_diffusion_defaults())

@@ -454,3 +454,12 @@ def _skew(qe):
 
     srel = qe[:, 1:, :]
     return
+
+
+def create_encoder_by_config(config):
+    encoder_norm = LayerNorm(self.d_model)
+    encoder_layer = TransformerEncoderLayerRPR(
+        self.d_model, self.nhead, self.d_ff, self.dropout,  # TODO
+        er_len=self.max_seq
+    )
+    return TransformerEncoderRPR(encoder_layer, config.num_hidden_layers, encoder_norm)
