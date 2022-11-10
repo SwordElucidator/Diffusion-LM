@@ -110,6 +110,7 @@ if __name__ == '__main__':
                   f"--dataset_partition {args.dataset_partition}  " \
                   f"--reuse_tokenized_data {args.reuse_tokenized_data}  " \
                   f"--midi_tokenizer {args.midi_tokenizer}  " \
+                  f"--data_path {args.data_path}  " \
                   f"--batch_size {args.bsz}  " \
                   f"--diffusion_steps {args.diff_steps} " \
                   f"--noise_schedule {args.noise_schedule} {train_setup} " \
