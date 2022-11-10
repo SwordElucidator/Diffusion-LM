@@ -10,6 +10,7 @@ def get_tokenizer_cls(data_args):
         cls = REMI
     elif data_args.midi_tokenizer == 'Structured':
         cls = Structured
+    print(f'Use tokenizer {cls.__name__}')
     return cls
 
 
