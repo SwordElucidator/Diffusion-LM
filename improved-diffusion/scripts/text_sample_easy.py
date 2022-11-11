@@ -101,7 +101,6 @@ def main():  # !!! don't use checkpoint_path from hyper
     print(arr.shape, 'full shape')
     arr = arr[: args.num_samples * args.mbr_sample]
 
-    word_lst_e2e = []
     print('decoding for e2e', )
     print(arr.shape)
     x_t = th.tensor(arr).cuda() if torch.cuda.is_available() else th.tensor(arr)  # for debug

@@ -130,8 +130,11 @@ class TransformerNetModel2(nn.Module):
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
-        self.output_down_proj = nn.Sequential(nn.Linear(config.hidden_size, config.hidden_size),
-                                              nn.Tanh(), nn.Linear(config.hidden_size, out_channels))
+        self.output_down_proj = nn.Sequential(
+            nn.Linear(config.hidden_size, config.hidden_size),
+            nn.Tanh(),
+            nn.Linear(config.hidden_size, out_channels)
+        )
 
     def get_embeds(self, input_ids):
         return self.word_embedding(input_ids)
