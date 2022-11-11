@@ -1,5 +1,6 @@
-# Diffusion-LM Improves Controllable Text Generation
+# Diffusion-LM on Symbolic Music Generation with Controllability
 
+Based on Diffusion-LM Improves Controllable Text Generation
 https://arxiv.org/pdf/2205.14217.pdf 
 
 
@@ -11,10 +12,7 @@ conda install mpi4py
 conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
 pip install -e improved-diffusion/ 
 pip install -e transformers/
-pip install spacy==3.2.4
-pip install datasets==2.4.0 
-pip install huggingface_hub==0.4.0 
-pip install wandb
+pip install spacy==3.2.4 datasets==2.4.0 huggingface_hub==0.4.0 wandb pillow miditok==1.2.9 mpi4py==3.0.3 scipy==1.7.3 miditoolkit==0.1.16
 ```
 
 -----------------------------------------------------
@@ -22,31 +20,43 @@ pip install wandb
 
 ```cd improved-diffusion; mkdir diffusion_models;```
 
-```python scripts/run_train.py --diff_steps 2000 --model_arch transformer --lr 0.0001 --lr_anneal_steps 200000  --seed 102 --noise_schedule sqrt --in_channel 16 --modality e2e-tgt --submit no --padding_mode block --app "--predict_xstart True --training_mode e2e --vocab_size 821  --e2e_train ../datasets/e2e_data " --notes xstart_e2e```
+```python scripts/run_train.py --diff_steps 2000 --model_arch transformer --lr 0.0001 --save_interval 20000 --lr_anneal_steps 200000 --seed 102 --noise_schedule sqrt --in_channel 16 --modality midi --submit no --padding_mode pad --app "--predict_xstart True --training_mode e2e --vocab_size 220 --e2e_train ../datasets/midi/midi_files " --notes xstart_midi --dataset_partition 1 --image_size 16 --midi_tokenizer='REMI'```
 
-```python scripts/run_train.py --diff_steps 2000 --model_arch transformer --lr 0.0001 --lr_anneal_steps 400000  --seed 101 --noise_schedule sqrt  --in_channel 128 --modality roc --submit no --padding_mode pad  --app "--predict_xstart True --training_mode e2e  --vocab_size 11043  --roc_train ../datasets/ROCstory " --notes xstart_e2e --bsz 64```
+```python scripts/run_train.py --diff_steps 2000 --model_arch transformer --lr 0.0001 --save_interval 8000 --lr_anneal_steps 80000 --seed 102 --noise_schedule sqrt --in_channel 16 --modality midi --submit no --padding_mode block --app "--predict_xstart True --training_mode e2e --vocab_size 275 --e2e_train ../datasets/midi/giant_midi_piano " --notes xstart_midi --dataset_partition 1 --image_size 16```
 
 
 -------------------
 ## Decode Diffusion-LM:
 mkdir generation_outputs 
 
-``python scripts/batch_decode.py {path-to-diffusion-lm} -1.0 ema``
+``python scripts/text_sample.py --model_path diffusion_models/diff_midi_pad_rand16_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/model200000.pt --batch_size 32 --num_samples 32 --top_p 1.0 --out_dir genout1``
 
 
 ------------------- 
-## Controllable Text Generation 
-First, train the classsifier used to guide the generation (e.g. a syntactic parser) 
+## Classifier
+Follow `notebooks/MusicClassifier copy.ipynb`
 
-``  
-python train_run.py --experiment e2e-tgt-tree  --app "--init_emb {path-to-diffusion-lm} --n_embd {16} --learned_emb yes " --pretrained_model bert-base-uncased --epoch 6 --bsz 10
-``
+------------------- 
+## Controllable Midi Generation (TODO)
 
-Then, we can use the trained classifier to guide generation. 
-(currently, need to update the classifier directory in scripts/infill.py. I will clean this up in the next release.)
+[//]: # (First, train the classsifier used to guide the generation &#40;e.g. a syntactic parser&#41; )
 
-``python 
-python scripts/infill.py --model_path {path-to-diffusion-lm} --eval_task_ 'control_tree' --use_ddim True  --notes "tree_adagrad" --eta 1. --verbose pipe``
+[//]: # ()
+[//]: # (``  )
+
+[//]: # (python train_run.py --experiment e2e-tgt-tree  --app "--init_emb {path-to-diffusion-lm} --n_embd {16} --learned_emb yes " --pretrained_model bert-base-uncased --epoch 6 --bsz 10)
+
+[//]: # (``)
+
+[//]: # ()
+[//]: # (Then, we can use the trained classifier to guide generation. )
+
+[//]: # (&#40;currently, need to update the classifier directory in scripts/infill.py. I will clean this up in the next release.&#41;)
+
+[//]: # ()
+[//]: # (``python )
+
+[//]: # (python scripts/infill.py --model_path {path-to-diffusion-lm} --eval_task_ 'control_tree' --use_ddim True  --notes "tree_adagrad" --eta 1. --verbose pipe``)
 
 
 
@@ -62,5 +72,33 @@ For details of the methods and results, please refer to our paper.
   journal={ArXiv},
   year={2022},
   volume={abs/2205.14217}
+}
+```
+### Tokenizers
+```bibtex
+@inproceedings{miditok2021,
+    title={MidiTok: A Python package for MIDI file tokenization},
+    author={Nathan Fradet, Jean-Pierre Briot, Fabien Chhel, Amal El Fallah Seghrouchni, Nicolas Gutowski},
+    booktitle={Extended Abstracts for the Late-Breaking Demo Session of the 22nd International Society for Music Information Retrieval Conference},
+    year={2021}
+}
+@article{midilike2018,
+    title={This time with feeling: Learning expressive musical performance},
+    author={Oore, Sageev and Simon, Ian and Dieleman, Sander and Eck, Douglas and Simonyan, Karen},
+    journal={Neural Computing and Applications},
+    year={2018},
+    publisher={Springer}
+}
+@inproceedings{remi2020,
+    title={Pop Music Transformer: Beat-based modeling and generation of expressive Pop piano compositions},
+    author={Huang, Yu-Siang and Yang, Yi-Hsuan},
+    booktitle={Proceedings of the 28th ACM International Conference on Multimedia},
+    year={2020}
+}
+@inproceedings{cpword2021,
+    title={Compound Word Transformer: Learning to Compose Full-Song Music over Dynamic Directed Hypergraphs},
+    author={Hsiao, Wen-Yi and Liu, Jen-Yu and Yeh, Yin-Cheng and Yang, Yi-Hsuan},
+    booktitle={Proceedings of the AAAI Conference on Artificial Intelligence},
+    year={2021}
 }
 ```
