@@ -5,3 +5,5 @@ improved-diffusion/wandb/*
 improved-diffusion/scripts/diffusion_models/*
 *.pyc
 .DS_Store
+*.mid
+*.npz
