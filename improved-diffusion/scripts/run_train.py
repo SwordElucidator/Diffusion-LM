@@ -89,7 +89,9 @@ if __name__ == '__main__':
                      f"_{args.diff_steps}_{args.noise_schedule}_{args.loss_type}_h{args.hidden_size}" \
                      f"_s{args.num_res_blocks}_sd{args.seed}"
     elif is_midi_task(args):
-        Model_FILE = f"diff_{args.modality}_{args.padding_mode}_{exp_m}{args.in_channel}_{args.model_arch}_lr{args.lr}_{args.weight_decay}" \
+        Model_FILE = f"diff_{args.modality}_{os.path.split(args.data_path)[-1]}_{args.midi_tokenizer}" \
+                     f"_{args.padding_mode}_{exp_m}{args.in_channel}" \
+                     f"_{args.model_arch}_lr{args.lr}_{args.weight_decay}" \
                      f"_{args.diff_steps}_{args.noise_schedule}_{args.loss_type}_h{args.hidden_size}" \
                      f"_s{args.num_res_blocks}_d{args.dropout}_sd{args.seed}"
 

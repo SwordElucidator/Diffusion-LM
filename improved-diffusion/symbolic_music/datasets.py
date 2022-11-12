@@ -9,7 +9,7 @@ import numpy as np
 from typing import List
 
 from improved_diffusion.text_datasets import _collate_batch_helper
-from symbolic_music.rounding import load_embedding_model
+from symbolic_music.utils import get_tokenizer
 
 
 def __create_embedding_model(data_args, vocab_size):
@@ -119,16 +119,6 @@ def __generate_data_list(padded_tokens_list, embedding_model, to_save_data_path)
     return data_list
 
 
-def get_tokenizer_cls(data_args):
-    cls = MIDILike
-    if data_args.midi_tokenizer == 'REMI':
-        cls = REMI
-    elif data_args.midi_tokenizer == 'Structured':
-        cls = Structured
-    print(f'Use tokenizer {cls.__name__}')
-    return cls
-
-
 def create_midi_dataloader(
         *, batch_size, data_args=None, split='train', embedding_model=None, dataset_partition=1
 ):
@@ -152,7 +142,7 @@ def create_midi_dataloader(
             except FileNotFoundError:
                 pass
     if data_list is None:
-        tokenizer = get_tokenizer_cls(data_args)(sos_eos_tokens=True, mask=False)
+        tokenizer = get_tokenizer(data_args)
         if padded_tokens_list is None:
             padded_tokens_list = __generate_input_ids(
                 tokenizer, data_args, split, dataset_partition, to_save_token_list_path
