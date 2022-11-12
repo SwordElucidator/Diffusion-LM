@@ -82,6 +82,11 @@ class MidiDataset(Dataset):
 
 def __tokenize(data_args, split, dataset_partition, tokenizer):
     # data_args.data_path
+    try:
+        tokenizer.vocab['SOS_None']
+        has_sos_eos = True
+    except KeyError:
+        has_sos_eos = False
     tokens_list = []
     print(f"Start tokenize files in {os.path.join(data_args.data_path, split)} with partition={dataset_partition}")
     for midi_file_name in os.listdir(os.path.join(data_args.data_path, split)):
@@ -91,7 +96,10 @@ def __tokenize(data_args, split, dataset_partition, tokenizer):
             # will have a very long size for each
             tokens = tokenizer.midi_to_tokens(MidiFile(os.path.join(data_args.data_path, split, midi_file_name)))
             try:
-                tokens_list.append([tokenizer.vocab['SOS_None']] + tokens[0] + [tokenizer.vocab['EOS_None']])
+                if has_sos_eos:
+                    tokens_list.append([tokenizer.vocab['SOS_None']] + tokens[0] + [tokenizer.vocab['EOS_None']])
+                else:
+                    tokens_list.append(tokens[0])
             except Exception as e:
                 print(f'error on {midi_file_name}')
                 print(e)
