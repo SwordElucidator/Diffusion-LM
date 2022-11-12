@@ -108,7 +108,7 @@ def __generate_input_ids(tokenizer, data_args, split, dataset_partition, to_save
     return padded_tokens_list
 
 
-def __generate_data_list(padded_tokens_list, embedding_model, to_save_data_path):
+def __generate_data_list(padded_tokens_list, embedding_model):
     print('Start hidden state embedding...')
     data_list = [
         {
@@ -117,8 +117,6 @@ def __generate_data_list(padded_tokens_list, embedding_model, to_save_data_path)
         }
         for padded_tokens in padded_tokens_list
     ]
-    print('Save hidden state embedding...')
-    np.savez(to_save_data_path, data_list)
     return data_list
 
 
@@ -131,27 +129,24 @@ def create_midi_dataloader(
     """
     print("Creating midi dataloader...")
     to_save_token_list_path = f'{data_args.checkpoint_path}/padded_tokens_list_{split}.npz'
-    to_save_data_path = f'{data_args.checkpoint_path}/padded_data_{split}.npz'
-    data_list, padded_tokens_list = None, None
+    padded_tokens_list = None
     if data_args.reuse_tokenized_data:
         print('reusing tokenized data...')
         try:
-            data_list = np.load(to_save_data_path, allow_pickle=True)['arr_0']
-            print(f'Pre-embedded data list loaded from {to_save_data_path}.')
+            padded_tokens_list = np.load(to_save_token_list_path)['arr_0']
+            print(f'Pre-padded token list loaded from {to_save_token_list_path}.')
         except FileNotFoundError:
-            try:
-                padded_tokens_list = np.load(to_save_token_list_path)['arr_0']
-                print(f'Pre-padded token list loaded from {to_save_data_path}.')
-            except FileNotFoundError:
-                pass
-    if data_list is None:
-        tokenizer = get_tokenizer(data_args)
-        if padded_tokens_list is None:
-            padded_tokens_list = __generate_input_ids(
-                tokenizer, data_args, split, dataset_partition, to_save_token_list_path
-            )
+            pass
+    tokenizer = get_tokenizer(data_args)
+    if padded_tokens_list is None:
+        padded_tokens_list = __generate_input_ids(
+            tokenizer, data_args, split, dataset_partition, to_save_token_list_path
+        )
+    if not embedding_model:
+        print('****** create new embedding model ******')
         embedding_model = __create_embedding_model(data_args, vocab_size=len(tokenizer.vocab))
-        data_list = __generate_data_list(padded_tokens_list, embedding_model, to_save_data_path)
+    data_list = __generate_data_list(padded_tokens_list, embedding_model)
+
     print('Making Dataset...')
     dataset = MidiDataset(
         data_list,
