@@ -13,5 +13,6 @@ def get_tokenizer(data_args):
         cls = Structured
     print(f'Use tokenizer {cls.__name__}')
     if data_args.padding_mode == 'bar_block':
+        assert data_args.midi_tokenizer == 'REMI'
         return cls(sos_eos_tokens=False, mask=False)
     return cls(sos_eos_tokens=True, mask=False)
