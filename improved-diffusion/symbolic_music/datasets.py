@@ -9,6 +9,7 @@ import numpy as np
 from typing import List
 
 from improved_diffusion.text_datasets import _collate_batch_helper
+from symbolic_music.advanced_padding import advanced_remi_bar_block
 from symbolic_music.utils import get_tokenizer
 
 
@@ -26,6 +27,8 @@ def __padding(data_args, tokens_list, block_size) -> List[List[int]]:
     """
     block padding, will make blocks for long examples. note that [s] and [end] might be lost in many many tracks
     """
+    if data_args.padding_mode == 'bar_block':
+        return advanced_remi_bar_block(tokens_list, block_size)
     if data_args.padding_mode == 'block':
         print('using block padding')
         concatenated_tokens = sum(tokens_list, [])
