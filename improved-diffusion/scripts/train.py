@@ -4,6 +4,8 @@ Train a diffusion model on images.
 
 import argparse
 import json, torch, os
+import time
+
 from improved_diffusion import dist_util, logger
 from improved_diffusion.image_datasets import load_data
 from improved_diffusion.text_datasets import load_data_text
@@ -78,10 +80,8 @@ def main():
             embedding_model=None
         )
         logger.log(f'Finish load training data loader...')
-        import pdb
-        pdb.set_trace()
+        time.sleep(1)
         next(data)
-        pdb.set_trace()
         logger.log(f'Load embedding model...')
         embedding_model = load_embedding_model(args)
         logger.log(f'Load validation data...')
