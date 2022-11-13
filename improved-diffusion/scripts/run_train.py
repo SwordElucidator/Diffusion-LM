@@ -105,7 +105,7 @@ if __name__ == '__main__':
     # go command line and run scripts/train.py
     COMMANDLINE = f" OPENAI_LOGDIR={Model_FILE}  " \
                   f"TOKENIZERS_PARALLELISM=false " \
-                  f"python scripts/train.py   " \
+                  f"python3 scripts/train.py   " \
                   f"--checkpoint_path {Model_FILE} " \
                   f"--model_arch {args.model_arch} " \
                   f"--modality {args.modality} " \
