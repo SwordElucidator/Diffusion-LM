@@ -9,6 +9,7 @@ import numpy as np
 from typing import List
 
 from improved_diffusion.text_datasets import _collate_batch_helper
+from improved_diffusion.utils import point_debug
 from symbolic_music.advanced_padding import advanced_remi_bar_block
 from symbolic_music.utils import get_tokenizer
 
@@ -166,6 +167,7 @@ def __generate_data_list(padded_tokens_list, embedding_model):
     return data_list
 # (separate to different sets!   also need to input total size)
 
+
 def create_midi_dataloader(
         *, batch_size, data_args=None, split='train', embedding_model=None, dataset_partition=1
 ):
@@ -173,6 +175,7 @@ def create_midi_dataloader(
     lower the complexity for now.
     Will add more experiments later
     """
+    point_debug(data_args)
     print("Creating midi dataloader...")
     to_save_token_list_path = f'{data_args.checkpoint_path}/padded_tokens_list_{split}.npz'
     padded_tokens_list = None

@@ -40,6 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('--reuse_tokenized_data', type=bool, default=False, help='whether use tokenized data')
     parser.add_argument('--midi_tokenizer', type=str, default='REMI', help='')
     parser.add_argument('--data_path', type=str, default='../datasets/midi/giant_midi_piano', help='')
+    parser.add_argument('--debug', type=bool, default=False, help='')
     args = parser.parse_args()
 
     folder_name = "diffusion_models/"
@@ -113,6 +114,7 @@ if __name__ == '__main__':
                   f"--reuse_tokenized_data {args.reuse_tokenized_data}  " \
                   f"--midi_tokenizer {args.midi_tokenizer}  " \
                   f"--data_path {args.data_path}  " \
+                  f"--debug {args.debug}  " \
                   f"--batch_size {args.bsz}  " \
                   f"--diffusion_steps {args.diff_steps} " \
                   f"--noise_schedule {args.noise_schedule} {train_setup} " \

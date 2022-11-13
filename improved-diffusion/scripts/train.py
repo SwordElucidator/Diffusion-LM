@@ -16,6 +16,7 @@ from improved_diffusion.script_util import (
     args_to_dict,
     add_dict_to_argparser,
 )
+from improved_diffusion.utils import point_debug
 from symbolic_music.datasets import create_midi_dataloader
 from symbolic_music.rounding import load_embedding_model
 from symbolic_music.utils import is_midi_task
@@ -81,7 +82,9 @@ def main():
         )
         logger.log(f'Finish load training data loader...')
         time.sleep(1)
+        point_debug(args)
         next(data)
+        point_debug(args)
         logger.log(f'Load embedding model...')
         embedding_model = load_embedding_model(args)
         logger.log(f'Load validation data...')
@@ -222,6 +225,7 @@ def create_argparser():
         eval_interval=2000,
         checkpoint_path='diff_models',
         dataset_partition=1.0,
+        debug=False
     )
     text_defaults = dict(modality='text',
                          dataset_name='wikitext',
