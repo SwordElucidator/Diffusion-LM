@@ -78,7 +78,10 @@ def main():
             embedding_model=None
         )
         logger.log(f'Finish load training data loader...')
+        import pdb
+        pdb.set_trace()
         next(data)
+        pdb.set_trace()
         logger.log(f'Load embedding model...')
         embedding_model = load_embedding_model(args)
         logger.log(f'Load validation data...')

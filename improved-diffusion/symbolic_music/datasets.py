@@ -80,6 +80,44 @@ class MidiDataset(Dataset):
         return arr, out_dict
 
 
+class LargeMidiDataset(Dataset):
+    def __init__(
+            self, padded_tokens_list, embedding_model, data_args, eigen_transform=None,
+            mapping_func=None, model_emb=None
+    ):
+        super().__init__()
+        self.padded_tokens_list = padded_tokens_list
+        self.embedding_model = embedding_model
+        self.length = len(self.padded_tokens_list)
+        self.data_args = data_args
+        self.eigen_transform = eigen_transform
+        self.mapping_func = mapping_func
+        self.model_emb = model_emb
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, idx):
+        self.padded_tokens_list[0: 10000]
+
+        arr = np.array(self.midi_data_list[idx]['hidden_states'], dtype=np.float32)
+        if self.eigen_transform is not None:
+            old_shape = arr.shape
+            # arr = arr.reshape(1, -1) @ self.eigen_transform
+            arr = arr.reshape(1, -1) - self.eigen_transform['mean']
+            arr = arr @ self.eigen_transform['map']
+            arr = arr.reshape(old_shape)
+
+        if hasattr(self.data_args, 'noise_level') and self.data_args.noise_level > 0:
+            arr = arr + self.data_args.noise_level * np.random.randn(*arr.shape).astype(arr.dtype)
+
+        out_dict = {'input_ids': np.array(self.midi_data_list[idx]['input_ids'])}
+        if self.data_args.experiment_mode == 'conditional_gen':  # TODO not implementing conditional gen for now
+            out_dict['src_ids'] = np.array(self.midi_data_list[idx]['src_ids'])
+            out_dict['src_mask'] = np.array(self.midi_data_list[idx]['src_mask'])
+        return arr, out_dict
+
+
 def __tokenize(data_args, split, dataset_partition, tokenizer):
     # data_args.data_path
     try:
@@ -126,7 +164,7 @@ def __generate_data_list(padded_tokens_list, embedding_model):
         for padded_tokens in padded_tokens_list
     ]
     return data_list
-
+# (separate to different sets!   also need to input total size)
 
 def create_midi_dataloader(
         *, batch_size, data_args=None, split='train', embedding_model=None, dataset_partition=1
@@ -135,8 +173,11 @@ def create_midi_dataloader(
     lower the complexity for now.
     Will add more experiments later
     """
+    import pdb
+    pdb.set_trace()
     print("Creating midi dataloader...")
     to_save_token_list_path = f'{data_args.checkpoint_path}/padded_tokens_list_{split}.npz'
+    pdb.set_trace()
     padded_tokens_list = None
     if data_args.reuse_tokenized_data:
         print('reusing tokenized data...')
