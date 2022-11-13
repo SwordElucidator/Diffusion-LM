@@ -99,9 +99,8 @@ class LargeMidiDataset(Dataset):
         return self.length
 
     def __getitem__(self, idx):
-        self.padded_tokens_list[0: 10000]
-
-        arr = np.array(self.midi_data_list[idx]['hidden_states'], dtype=np.float32)
+        padded_tokens = self.padded_tokens_list[idx]
+        arr = np.array(self.embedding_model(torch.tensor(padded_tokens)).cpu().tolist(), dtype=np.float32)
         if self.eigen_transform is not None:
             old_shape = arr.shape
             # arr = arr.reshape(1, -1) @ self.eigen_transform
@@ -112,10 +111,11 @@ class LargeMidiDataset(Dataset):
         if hasattr(self.data_args, 'noise_level') and self.data_args.noise_level > 0:
             arr = arr + self.data_args.noise_level * np.random.randn(*arr.shape).astype(arr.dtype)
 
-        out_dict = {'input_ids': np.array(self.midi_data_list[idx]['input_ids'])}
+        out_dict = {'input_ids': np.array(padded_tokens)}
         if self.data_args.experiment_mode == 'conditional_gen':  # TODO not implementing conditional gen for now
-            out_dict['src_ids'] = np.array(self.midi_data_list[idx]['src_ids'])
-            out_dict['src_mask'] = np.array(self.midi_data_list[idx]['src_mask'])
+            raise NotImplementedError
+            # out_dict['src_ids'] = np.array(self.midi_data_list[idx]['src_ids'])
+            # out_dict['src_mask'] = np.array(self.midi_data_list[idx]['src_mask'])
         return arr, out_dict
 
 
@@ -194,15 +194,19 @@ def create_midi_dataloader(
     if not embedding_model:
         print('****** create new embedding model ******')
         embedding_model = __create_embedding_model(data_args, vocab_size=len(tokenizer.vocab))
-    data_list = __generate_data_list(padded_tokens_list, embedding_model)
 
-    print('Making Dataset...')
-    dataset = MidiDataset(
-        data_list,
-        data_args.image_size,
-        data_args,
-        model_arch=data_args.model_arch,  # transformer for NLP / MIDI, or probably use better music transformer? TODO
-    )
+    use_large_dataset = True
+    if use_large_dataset:
+        print('Making large Dataset...')
+        dataset = LargeMidiDataset(padded_tokens_list, embedding_model, data_args)
+    else:
+        print('Making Dataset...')
+        dataset = MidiDataset(
+            __generate_data_list(padded_tokens_list, embedding_model),
+            data_args.image_size,
+            data_args,
+            model_arch=data_args.model_arch,  # transformer for NLP / MIDI, or probably use better music transformer? TODO
+        )
     print('Making DataLoader...')
     data_loader = DataLoader(
         dataset,
