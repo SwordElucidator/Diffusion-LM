@@ -37,6 +37,8 @@ def advanced_remi_bar_block(tokens_list, block_size, skip_paddings_ratio=0.2):
                     start_index += 1
                     while tokens[start_index] != 1:
                         start_index += 1
+                        if start_index == len(tokens):
+                            break
                     maximum = start_index + block_size - 1
                     continue
                 if block_size - (maximum + 1 - start_index) <= block_size * skip_paddings_ratio:
