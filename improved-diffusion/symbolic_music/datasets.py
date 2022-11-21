@@ -1,7 +1,6 @@
 import random
 
 import torch
-from miditok import MIDILike, REMI, Structured
 from miditoolkit import MidiFile
 import os
 from torch.utils.data import DataLoader, Dataset

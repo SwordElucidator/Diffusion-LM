@@ -191,7 +191,7 @@ class TrainLoop:
         if (self.step - 1) % self.save_interval != 0:
             self.save()
 
-    def run_step(self, batch, cond):
+    def run_step(self, batch, cond):  # the only thing for each step
         self.forward_backward(batch, cond)
         if self.use_fp16:
             self.optimize_fp16()
@@ -231,6 +231,7 @@ class TrainLoop:
 
 
     def forward_backward(self, batch, cond):
+        # do the forward / backward process
         zero_grad(self.model_params)
         for i in range(0, batch.shape[0], self.microbatch):
             micro = batch[i : i + self.microbatch].to(dist_util.dev())

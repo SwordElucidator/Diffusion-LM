@@ -20,7 +20,6 @@ from improved_diffusion.test_util import get_weights, denoised_fn_round
 from improved_diffusion import dist_util, logger
 from functools import partial
 from improved_diffusion.script_util import (
-    NUM_CLASSES,
     model_and_diffusion_defaults,
     create_model_and_diffusion,
     add_dict_to_argparser,
