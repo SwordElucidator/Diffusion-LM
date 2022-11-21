@@ -456,10 +456,10 @@ def _skew(qe):
     return
 
 
-def create_encoder_by_config(config):
-    encoder_norm = LayerNorm(self.d_model)
+def create_music_transformer_encoder_by_config(config, max_sequence=2048):
+    encoder_norm = LayerNorm(config.hidden_size)
     encoder_layer = TransformerEncoderLayerRPR(
-        self.d_model, self.nhead, self.d_ff, self.dropout,  # TODO
-        er_len=self.max_seq
+        config.hidden_size, config.num_attention_heads, config.intermediate_size, config.hidden_dropout_prob,
+        er_len=max_sequence
     )
     return TransformerEncoderRPR(encoder_layer, config.num_hidden_layers, encoder_norm)

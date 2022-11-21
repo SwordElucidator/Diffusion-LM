@@ -1,6 +1,7 @@
 import argparse
 import inspect
 
+from symbolic_music.music_transformer_model import MusicTransformerModel
 from . import gaussian_diffusion as gd
 from .respace import SpacedDiffusion, space_timesteps
 from .unet import SuperResModel, UNetModel
@@ -236,7 +237,7 @@ def create_model(
             training_mode=training_mode,
             vocab_size=vocab_size,
         )
-    elif model_arch == 'transformer':  # will be use in our task
+    elif model_arch in ('transformer', 'music-transformer'):  # will be use in our task
         if image_size == 256:
             channel_mult = (1, 1, 2, 2, 4, 4)
         elif image_size == 64:
@@ -251,6 +252,17 @@ def create_model(
         attention_ds = []
         for res in attention_resolutions.split(","):
             attention_ds.append(image_size // int(res))
+
+        if model_arch == 'music-transformer':
+            return MusicTransformerModel(
+                in_channels=in_channel,
+                model_channels=num_channels,
+                out_channels=out_channel,
+                dropout=dropout,
+                config_name=config_name,
+                vocab_size=vocab_size,
+                experiment_mode=experiment_mode
+            )
 
         return TransformerNetModel2(
             in_channels=in_channel,  # 3, DEBUG**

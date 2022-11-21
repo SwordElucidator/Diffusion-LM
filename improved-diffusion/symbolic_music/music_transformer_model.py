@@ -1,3 +1,4 @@
+from symbolic_music.music_transformer_by_rpr import create_music_transformer_encoder_by_config
 from transformers import AutoConfig
 from transformers.models.bert.modeling_bert import BertEncoder
 import torch
@@ -9,7 +10,7 @@ from improved_diffusion.nn import (
 )
 
 
-class TransformerNetModel2(nn.Module):
+class MusicTransformerModel(nn.Module):
     def __init__(
         self,
         in_channels,  # embedding size for the notes  (channels of input tensor)   e.g. 16 / 32 / 128
@@ -29,6 +30,7 @@ class TransformerNetModel2(nn.Module):
         self.in_channels = in_channels
         self.model_channels = model_channels
         self.dropout = dropout
+        self.max_period = 2048
 
         # embedding layer  shape -> [*shape, in_channels]
         self.word_embedding = nn.Embedding(vocab_size, self.in_channels)
@@ -40,7 +42,7 @@ class TransformerNetModel2(nn.Module):
         if experiment_mode == 'conditional_gen':
             self.conditional_gen = True
             self.encoder_emb = nn.Embedding(vocab_size, config.hidden_size)
-            self.encoder = BertEncoder(config)
+            self.encoder = create_music_transformer_encoder_by_config(config, max_sequence=self.max_period)
             print(config, 'conditional_gen')
             config.is_decoder = True
             config.add_cross_attention = True
@@ -65,7 +67,7 @@ class TransformerNetModel2(nn.Module):
         # 768 ->
         # attention(SelfAttention + output(dense + LayerNorm + drop)) + 放大层dense + output(dense + LayerNorm + drop)
         # -> 768
-        self.input_transformers = BertEncoder(config)
+        self.input_transformers = create_music_transformer_encoder_by_config(config, max_sequence=self.max_period)
         # self.position_ids
         self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
         # position embedding = 512 -> 768
@@ -98,7 +100,7 @@ class TransformerNetModel2(nn.Module):
         :return: an [N x C x ...] Tensor of outputs.
         """
         #  timesteps  (1,2,3,4...)  ->    sine positional embedding    ->     128 -> 512 -> 768
-        emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
+        emb = self.time_embed(timestep_embedding(timesteps, self.model_channels, max_period=self.max_period))
 
         if self.conditional_gen:
             assert src_ids is not None
