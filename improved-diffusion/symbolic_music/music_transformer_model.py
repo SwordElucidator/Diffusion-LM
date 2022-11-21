@@ -26,6 +26,8 @@ class MusicTransformerModel(nn.Module):
         # load bert config
         config = AutoConfig.from_pretrained(config_name)
         config.hidden_dropout_prob = dropout
+        # use music transformer recommended
+        # config.intermediate_size = 1024
 
         self.in_channels = in_channels
         self.model_channels = model_channels
