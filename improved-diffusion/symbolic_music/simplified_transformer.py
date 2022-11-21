@@ -1,11 +1,6 @@
 from transformers import AutoConfig
 from transformers.models.bert.modeling_bert import BertEncoder
 import torch
-
-import math
-
-import numpy as np
-import torch as th
 import torch.nn as nn
 from improved_diffusion.nn import (
     SiLU,
@@ -39,7 +34,7 @@ class TransformerNetModel2(nn.Module):
         self.word_embedding = nn.Embedding(vocab_size, self.in_channels)
         # language model head   in_channels -> vocab_size
         self.lm_head = nn.Linear(self.in_channels, vocab_size)
-        with th.no_grad():
+        with torch.no_grad():
             self.lm_head.weight = self.word_embedding.weight
 
         if experiment_mode == 'conditional_gen':
