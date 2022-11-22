@@ -453,7 +453,7 @@ def _skew(qe):
     qe = torch.reshape(qe, (qe.shape[0], qe.shape[2], qe.shape[1]))
 
     srel = qe[:, 1:, :]
-    return
+    return srel
 
 
 def create_music_transformer_encoder_by_config(config, max_sequence=2048):
