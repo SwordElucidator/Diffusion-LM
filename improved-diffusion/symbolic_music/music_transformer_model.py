@@ -1,6 +1,5 @@
 from symbolic_music.music_transformer_by_rpr import create_music_transformer_encoder_by_config
 from transformers import AutoConfig
-from transformers.models.bert.modeling_bert import BertEncoder
 import torch
 import torch.nn as nn
 from improved_diffusion.nn import (
@@ -109,7 +108,7 @@ class MusicTransformerModel(nn.Module):
             # print(src_ids.shape, 'source_ids shape')
             src_emb = self.encoder_emb(src_ids)
             # print(src_ids.shape, src_emb.shape)
-            encoder_hidden_states = self.encoder(src_emb).last_hidden_state
+            encoder_hidden_states = self.encoder(src_emb)
             encoder_attention_mask = src_mask.unsqueeze(1).unsqueeze(1)
 
         # in_channels (16) -> 768(hidden_size) -> 768(hidden_size)
@@ -127,10 +126,10 @@ class MusicTransformerModel(nn.Module):
             input_trans_hidden_states = self.input_transformers(emb_inputs,
                                                                 encoder_hidden_states=encoder_hidden_states,
                                                                 encoder_attention_mask=encoder_attention_mask,
-                                                                ).last_hidden_state
+                                                                )
         else:
             # 768 -> 768
-            input_trans_hidden_states = self.input_transformers(emb_inputs).last_hidden_state
+            input_trans_hidden_states = self.input_transformers(emb_inputs)
         # (,768) -> (,16)
         h = self.output_down_proj(input_trans_hidden_states)
         h = h.type(x.dtype)
