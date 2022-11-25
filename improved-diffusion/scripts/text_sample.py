@@ -12,7 +12,7 @@ import torch
 import torch as th
 import torch.distributed as dist
 
-from symbolic_music.rounding import load_embedding_model, tokenize_e2e
+from symbolic_music.rounding import load_embedding_model, tokens_list_to_midi_list
 from symbolic_music.utils import is_midi_task
 from transformers import set_seed
 from improved_diffusion.rounding import rounding_func, load_models, load_tokenizer
@@ -180,7 +180,7 @@ def main():  # !!! don't use checkpoint_path from hyper
         print(f"cands is {cands}")
         # TODO check tokenizer and fix
         if is_midi_task(args):
-            word_lst_e2e = tokenize_e2e(args, cands.indices)
+            word_lst_e2e = tokens_list_to_midi_list(args, cands.indices)
         else:
             tokenizer = load_tokenizer(args.modality, args.experiment, os.path.split(args.model_path)[0])
             for seq in cands.indices:
