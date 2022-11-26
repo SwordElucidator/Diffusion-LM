@@ -92,6 +92,83 @@ class LongformerNetModel(nn.Module):
         # in_channels (~16) -> vocab_size
         return self.lm_head(hidden_repr)
 
+    def get_extended_attention_mask(self, attention_mask, input_shape, device):
+        """
+        Makes broadcastable attention and causal masks so that future and masked tokens are ignored.
+
+        Arguments:
+            attention_mask (`torch.Tensor`):
+                Mask with ones indicating tokens to attend to, zeros for tokens to ignore.
+            input_shape (`Tuple[int]`):
+                The shape of the input to the model.
+            device: (`torch.device`):
+                The device of the input to the model.
+
+        Returns:
+            `torch.Tensor` The extended attention mask, with a the same dtype as `attention_mask.dtype`.
+        """
+        # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
+        # ourselves in which case we just need to make it broadcastable to all heads.
+        if attention_mask.dim() == 3:
+            extended_attention_mask = attention_mask[:, None, :, :]
+        elif attention_mask.dim() == 2:
+            # Provided a padding mask of dimensions [batch_size, seq_length]
+            # - if the model is a decoder, apply a causal mask in addition to the padding mask
+            # - if the model is an encoder, make the mask broadcastable to [batch_size, num_heads, seq_length, seq_length]
+            if self.config.is_decoder:
+                batch_size, seq_length = input_shape
+                seq_ids = torch.arange(seq_length, device=device)
+                causal_mask = seq_ids[None, None, :].repeat(batch_size, seq_length, 1) <= seq_ids[None, :, None]
+                # in case past_key_values are used we need to add a prefix ones mask to the causal mask
+                # causal and attention masks must have same type with pytorch version < 1.3
+                causal_mask = causal_mask.to(attention_mask.dtype)
+
+                if causal_mask.shape[1] < attention_mask.shape[1]:
+                    prefix_seq_len = attention_mask.shape[1] - causal_mask.shape[1]
+                    causal_mask = torch.cat(
+                        [
+                            torch.ones(
+                                (batch_size, seq_length, prefix_seq_len), device=device, dtype=causal_mask.dtype
+                            ),
+                            causal_mask,
+                        ],
+                        axis=-1,
+                    )
+
+                extended_attention_mask = causal_mask[:, None, :, :] * attention_mask[:, None, None, :]
+            else:
+                extended_attention_mask = attention_mask[:, None, None, :]
+        else:
+            raise ValueError(
+                f"Wrong shape for input_ids (shape {input_shape}) or attention_mask (shape {attention_mask.shape})"
+            )
+
+        # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
+        # masked positions, this operation will create a tensor which is 0.0 for
+        # positions we want to attend and -10000.0 for masked positions.
+        # Since we are adding it to the raw scores before the softmax, this is
+        # effectively the same as removing these entirely.
+        extended_attention_mask = extended_attention_mask.to(dtype=self.dtype)  # fp16 compatibility
+        extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
+        return extended_attention_mask
+
+    def _make_attention_mask(self, x):
+
+        attention_window = (
+            self.config.attention_window
+            if isinstance(self.config.attention_window, int)
+            else max(self.config.attention_window)
+        )
+        assert attention_window % 2 == 0, f"`attention_window` should be an even value. Given {attention_window}"
+        input_shape = x.shape
+        attention_mask = torch.ones(input_shape, device=x.device)
+        batch_size, seq_len = input_shape[:2]
+        padding_len = (attention_window - seq_len % attention_window) % attention_window
+        attention_mask = nn.functional.pad(
+            attention_mask, (0, padding_len), value=False
+        )
+        return self.get_extended_attention_mask(attention_mask, input_shape, x.device)[:, 0, 0, :]
+
     def forward(self, x, timesteps, src_ids=None, src_mask=None):
         """
         Apply the model to an input batch.
@@ -122,15 +199,19 @@ class LongformerNetModel(nn.Module):
         # (,768)
         emb_inputs = self.position_embeddings(position_ids) + emb_x + emb.unsqueeze(1).expand(-1, seq_length, -1)
         emb_inputs = self.dropout(self.LayerNorm(emb_inputs))
+        extended_attention_mask = self._make_attention_mask(x)
         if self.conditional_gen:
             # print(emb_inputs.shape, encoder_hidden_states.shape, encoder_attention_mask.shape)
+            # TODO
             input_trans_hidden_states = self.input_transformers(emb_inputs,
                                                                 encoder_hidden_states=encoder_hidden_states,
                                                                 encoder_attention_mask=encoder_attention_mask,
                                                                 ).last_hidden_state
         else:
             # 768 -> 768
-            input_trans_hidden_states = self.input_transformers(emb_inputs).last_hidden_state
+            input_trans_hidden_states = self.input_transformers(
+                emb_inputs, attention_mask=extended_attention_mask
+            ).last_hidden_state
         # (,768) -> (,16)
         h = self.output_down_proj(input_trans_hidden_states)
         h = h.type(x.dtype)
