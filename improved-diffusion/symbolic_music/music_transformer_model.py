@@ -1,3 +1,5 @@
+import math
+
 from symbolic_music.music_transformer_by_rpr import create_music_transformer_encoder_by_config
 from transformers import AutoConfig
 import torch
@@ -7,6 +9,27 @@ from improved_diffusion.nn import (
     linear,
     timestep_embedding,
 )
+
+
+# PositionalEncoding
+# Taken from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
+class PositionalEncoding(nn.Module):
+
+    def __init__(self, d_model, dropout=0.1, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        x = x + self.pe[:x.size(0), :]
+        return self.dropout(x)
 
 
 class MusicTransformerModel(nn.Module):
@@ -69,10 +92,11 @@ class MusicTransformerModel(nn.Module):
         # attention(SelfAttention + output(dense + LayerNorm + drop)) + 放大层dense + output(dense + LayerNorm + drop)
         # -> 768
         self.input_transformers = create_music_transformer_encoder_by_config(config, max_sequence=self.max_period)
+        self.positional_encoding = PositionalEncoding(config.hidden_size, self.dropout, self.max_period)
         # self.position_ids
-        self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
+        # self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
         # position embedding = 512 -> 768
-        self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
+        # self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
@@ -111,15 +135,13 @@ class MusicTransformerModel(nn.Module):
             encoder_hidden_states = self.encoder(src_emb)
             encoder_attention_mask = src_mask.unsqueeze(1).unsqueeze(1)
 
-        # in_channels (16) -> 768(hidden_size) -> 768(hidden_size)
         emb_x = self.input_up_proj(x)
 
         seq_length = x.size(1)
-        position_ids = self.position_ids[:, : seq_length]
         # print(emb_x.shape, emb.shape, self.position_embeddings)
 
         # (,768)
-        emb_inputs = self.position_embeddings(position_ids) + emb_x + emb.unsqueeze(1).expand(-1, seq_length, -1)
+        emb_inputs = self.positional_encoding(emb_x) + emb_x + emb.unsqueeze(1).expand(-1, seq_length, -1)
         emb_inputs = self.dropout(self.LayerNorm(emb_inputs))
         if self.conditional_gen:
             # print(emb_inputs.shape, encoder_hidden_states.shape, encoder_attention_mask.shape)
