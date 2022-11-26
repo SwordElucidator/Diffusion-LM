@@ -1,11 +1,16 @@
+from typing import Union, List, Tuple
+
 import torch
 import torch.nn as nn
+from torch import Tensor
+
 from improved_diffusion.nn import (
     SiLU,
     linear,
     timestep_embedding,
 )
 from transformers import AutoConfig
+from transformers.generation_utils import GenerationMixin
 from transformers.models.longformer.modeling_longformer import LongformerEncoder
 
 
@@ -154,6 +159,15 @@ class LongformerNetModel(nn.Module):
         extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
         return extended_attention_mask
 
+    @property
+    def dtype(self) -> torch.dtype:
+        """
+        `torch.dtype`: The dtype of the module (assuming that all the module parameters have the same dtype).
+        """
+        return get_parameter_dtype(self)
+
+
+
     def _make_attention_mask(self, x):
 
         attention_window = (
@@ -218,3 +232,18 @@ class LongformerNetModel(nn.Module):
         h = self.output_down_proj(input_trans_hidden_states)
         h = h.type(x.dtype)
         return h
+
+
+def get_parameter_dtype(parameter: Union[nn.Module, GenerationMixin, "ModuleUtilsMixin"]):
+    try:
+        return next(parameter.parameters()).dtype
+    except StopIteration:
+        # For nn.DataParallel compatibility in PyTorch 1.5
+
+        def find_tensor_attributes(module: nn.Module) -> List[Tuple[str, Tensor]]:
+            tuples = [(k, v) for k, v in module.__dict__.items() if torch.is_tensor(v)]
+            return tuples
+
+        gen = parameter._named_members(get_members_fn=find_tensor_attributes)
+        first_tuple = next(gen)
+        return first_tuple[1].dtype
