@@ -84,6 +84,8 @@ class LongformerNetModel(nn.Module):
             nn.Linear(config.hidden_size, out_channels)
         )
 
+        self.config = config
+
     def get_embeds(self, input_ids):
         # shape -> [*shape, in_channels]
         return self.word_embedding(input_ids)
