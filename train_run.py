@@ -47,7 +47,7 @@ if __name__ == '__main__':
     if not os.path.isdir(folder_name):
         os.mkdir(folder_name)
 
-    if args.experiment == 'e2e-tgt' or  args.experiment == 'e2e-tgt-pos' or args.experiment == 'e2e-tgt-tree' or \
+    if args.experiment == 'e2e-tgt' or args.experiment == 'e2e-tgt-pos' or args.experiment == 'e2e-tgt-tree' or \
             args.experiment == 'e2e-tgt-gen-tree' or  args.experiment == 'e2e-tgt-gen-pos' or args.experiment == 'e2e-back-gen' \
             or args.experiment == 'e2e-tgt-gen-length' or args.experiment == 'e2e-tgt-gen-spans' \
             or args.experiment == 'e2e-back' \
