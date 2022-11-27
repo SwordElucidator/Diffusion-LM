@@ -228,7 +228,9 @@ class GaussianDiffusion:
 
         self.training_mode = training_mode
         print('training mode is ', training_mode)
-        self.mapping_func = None 
+        self.mapping_func = None
+
+        self.use_cuda = th.cuda.is_available()
         #
         # if training_mode == 'e2e':
         #     self.training_losses = self.training_losses_e2e
@@ -1451,6 +1453,8 @@ class GaussianDiffusion:
             raise NotImplementedError(self.model_mean_type)
         return {'pred_xprev':pred_prev, 'pred_xstart':pred_xstart}
 
+    def __get_module(self, model):
+        return model.model.module if self.use_cuda else model.model
 
     def training_losses_e2e(self, model, x_start, t, model_kwargs=None, noise=None):
         """
@@ -1467,7 +1471,7 @@ class GaussianDiffusion:
         """
         assert 'input_ids' in model_kwargs
         input_ids = model_kwargs.pop('input_ids').to(t.device)
-        x_start_mean = model.model.module.get_embeds(input_ids)
+        x_start_mean = self.__get_module(model).get_embeds(input_ids)
         if self.model_arch == 'conv-unet':
             seqlen = int(np.sqrt(input_ids.size(1)))
             x_start_mean = x_start_mean.view(x_start_mean.size(0), seqlen, seqlen, x_start_mean.size(-1)).permute(0, 3,
@@ -1484,7 +1488,7 @@ class GaussianDiffusion:
         if noise is None:
             noise = th.randn_like(x_start)
         x_t = self.q_sample(x_start, t, noise=noise) # reparametrization trick.
-        get_logits = model.model.module.get_logits
+        get_logits = self.__get_module(model).get_logits
 
         terms = {}
 
@@ -1598,7 +1602,8 @@ class GaussianDiffusion:
         assert 'input_ids' in model_kwargs
         x_start = None
         input_ids = model_kwargs.pop('input_ids').to(t.device)
-        x_start_mean = model.model.module.get_embeds(input_ids)
+
+        x_start_mean = self.__get_module(model).get_embeds(input_ids)
         if self.model_arch == 'conv-unet':
             seqlen = int(np.sqrt(input_ids.size(1)))
             x_start_mean = x_start_mean.view(x_start_mean.size(0), seqlen, seqlen, x_start_mean.size(-1)).permute(0, 3,
@@ -1610,7 +1615,7 @@ class GaussianDiffusion:
         if noise is None:
             noise = th.randn_like(x_start)
         x_t = self.q_sample(x_start, t, noise=noise) # reparametrization trick.
-        get_logits = model.model.module.get_logits
+        get_logits = self.__get_module(model).get_logits
 
         terms = {}
 

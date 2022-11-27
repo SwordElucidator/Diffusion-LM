@@ -1,6 +1,7 @@
 import argparse
 import inspect
 
+from symbolic_music.cleaned_transformer import CleanedTransformerModel
 from symbolic_music.longformer import LongformerNetModel
 from symbolic_music.music_transformer_model import MusicTransformerModel
 from . import gaussian_diffusion as gd
@@ -239,16 +240,16 @@ def create_model(
             vocab_size=vocab_size,
         )
     elif model_arch in ('transformer', 'music-transformer', 'longformer'):  # will be use in our task
-        if image_size == 256:
-            channel_mult = (1, 1, 2, 2, 4, 4)
-        elif image_size == 64:
-            channel_mult = (1, 2, 3, 4)
-        elif image_size == 32:
-            channel_mult = (1, 2, 2, 2)
-        elif image_size == 16:  # DEBUG**
-            channel_mult = (1, 2, 2, 2)
-        else:
-            channel_mult = (1, 2, 2, 2)
+        # if image_size == 256:
+        #     channel_mult = (1, 1, 2, 2, 4, 4)
+        # elif image_size == 64:
+        #     channel_mult = (1, 2, 3, 4)
+        # elif image_size == 32:
+        #     channel_mult = (1, 2, 2, 2)
+        # elif image_size == 16:  # DEBUG**
+        #     channel_mult = (1, 2, 2, 2)
+        # else:
+        #     channel_mult = (1, 2, 2, 2)
 
         attention_ds = []
         for res in attention_resolutions.split(","):
@@ -274,26 +275,34 @@ def create_model(
                 vocab_size=vocab_size,
                 experiment_mode=experiment_mode
             )
-
-        return TransformerNetModel2(
-            in_channels=in_channel,  # 3, DEBUG**
+        return CleanedTransformerModel(
+            in_channels=in_channel,
             model_channels=num_channels,
-            out_channels=(out_channel if not learn_sigma else out_channel*2),  # DEBUG**  (3 if not learn_sigma else 6),
-            num_res_blocks=num_res_blocks,
-            attention_resolutions=tuple(attention_ds),
+            out_channels=(out_channel if not learn_sigma else out_channel*2),
             dropout=dropout,
-            channel_mult=channel_mult,
-            num_classes=(NUM_CLASSES if class_cond else None),
-            use_checkpoint=use_checkpoint,
-            num_heads=num_heads,
-            num_heads_upsample=num_heads_upsample,
-            use_scale_shift_norm=use_scale_shift_norm,
-            config_name=config_name,
-            training_mode=training_mode,
             vocab_size=vocab_size,
             experiment_mode=experiment_mode,
-            logits_mode=logits_mode,
+            max_position_embeddings=max(image_size ** 2, 512)
         )
+        # return TransformerNetModel2(
+        #     in_channels=in_channel,  # 3, DEBUG**
+        #     model_channels=num_channels,
+        #     out_channels=(out_channel if not learn_sigma else out_channel*2),  # DEBUG**  (3 if not learn_sigma else 6),
+        #     num_res_blocks=num_res_blocks,
+        #     attention_resolutions=tuple(attention_ds),
+        #     dropout=dropout,
+        #     channel_mult=channel_mult,
+        #     num_classes=(NUM_CLASSES if class_cond else None),
+        #     use_checkpoint=use_checkpoint,
+        #     num_heads=num_heads,
+        #     num_heads_upsample=num_heads_upsample,
+        #     use_scale_shift_norm=use_scale_shift_norm,
+        #     config_name=config_name,
+        #     training_mode=training_mode,
+        #     vocab_size=vocab_size,
+        #     experiment_mode=experiment_mode,
+        #     logits_mode=logits_mode,
+        # )
     else:
         raise NotImplementedError
 

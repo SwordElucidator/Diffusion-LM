@@ -19,12 +19,14 @@ class CleanedTransformerModel(nn.Module):
         config_name='bert-base-uncased',
         vocab_size=None,  # size of the vocabulary, e.g. 218 for REMI
         experiment_mode='lm',  # lm or conditional_gen
+        max_position_embeddings=512
     ):
         super().__init__()
 
         # load bert config
         config = AutoConfig.from_pretrained(config_name)
         config.hidden_dropout_prob = dropout
+        config.max_position_embeddings = max_position_embeddings
 
         self.in_channels = in_channels
         self.model_channels = model_channels
