@@ -73,6 +73,7 @@ def __load_embedding(args, model):
 
 
 def main():
+    # 老几样
     set_seed(101)
     args = __prepare_args()
     model, diffusion = __load_model(args)
@@ -80,35 +81,45 @@ def main():
 
     todo_pad_token = -1
     pad_token = 0  # FIXME
-
     right_pad = th.empty(64).fill_(pad_token).long()
-    encoded_partial_seq = [th.cat([right_pad], dim=0)]
+    encoded_partial_seq = [th.cat([right_pad], dim=0)]  # 1 * 64
 
-    # if args.eval_task_ == 'control_tree':
+    # 获取classifier
     model_control = Classifier_Tree.from_pretrained(
         'predictability/diff_models/e2e-tgt-tree_e=20_b=32_m=bert-base-uncased_'
         'wikitext-103-raw-v1_101_wp_full_multi16_cat').cuda()
 
+    # get words
     control_label_lst = []
     with open('diffusion_lm/improved-diffusion/control_gen/target_tree.json', 'r') as controlf:
         for line in controlf:
             control_label_lst.append(json.loads(line))
     control_constraints = []
     for label_class_dict in control_label_lst[100:]:
-        padded_chart = th.LongTensor(label_class_dict['padded_chart'])
-        label_ids = padded_chart
-        langevin_fn_selected = partial(langevin_fn_tree, 0.0005, model_control,
-                                       label_ids.expand(args.batch_size, -1, -1),
-                                       0.1)
+        # (1, 64, 64)
+        # [[0, 0, 0, ..., 0, 0, 0],
+        #  [-100, 0, 43, ..., 0, 0, 0],
+        #  [-100, -100, 0, ..., 0, 0, 0],
+        #  ...,
+        #  [-100, -100, -100, ..., 0, 0, 0],
+        #  [-100, -100, -100, ..., -100, 0, 0],
+        #  [-100, -100, -100, ..., -100, -100, 0]]
+        label_ids = th.LongTensor(label_class_dict['padded_chart'])
+        langevin_fn_selected = partial(
+            langevin_fn_tree, 0.0005, model_control,
+            label_ids.expand(args.batch_size, -1, -1),  # bsz,64, 64
+            0.1
+        )
+        # example:
+        # label_class_dict['tree'] = [ '(TOP (S (ADVP (NP (RB Only) (NNS feet)) (RB away) (PP (IN from) (NP (NNP Café) (NNP Sicilia)))) (, ,) (NP (DT The) (NNP Punter) (NN coffee) (NNP Shop)) (VP (VP (VBZ offers) (NP (NML (JJ low) (NN price)) (NN coffee))) (CC and) (VP (VBZ does) (RB not) (VP (VB have) (NP (NN family) (NNS restrooms))))) (. .) (. \n)))']
         control_constraints.append((langevin_fn_selected, [label_class_dict['tree']]))
 
-    partial_seq = control_constraints
-    encoded_partial_seq = [encoded_partial_seq[0] for _ in range(len(partial_seq))]
-    print(f'RUNNING FOR {len(partial_seq)} constraints.', '*-' * 20)
+    encoded_partial_seq = [encoded_partial_seq[0] for _ in range(len(control_constraints))]
+    print(f'RUNNING FOR {len(control_constraints)} constraints.', '*-' * 20)
 
     logger.log("sampling...")
 
-    for (encoded_seq, control_helper) in zip(encoded_partial_seq, partial_seq):
+    for (encoded_seq, control_helper) in zip(encoded_partial_seq, control_constraints):
         all_images = []
         print(args.num_samples, encoded_seq.shape, 'encoded_seq.shape')
         while len(all_images) * args.batch_size < args.num_samples:
