@@ -65,7 +65,6 @@ def main():
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
     model.load_state_dict(dist_util.load_state_dict(args.model_path, map_location="cpu"))
-    # model.load_state_dict(th.load(args.model_path))
     model.to(dist_util.dev())
     model.eval()
 
@@ -84,7 +83,6 @@ def main():
 
     file = './diffusion_models/diff_midi_midi_files_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/padded_tokens_list_valid.npz'
     arr = np.load(file)['arr_0']
-    # partial_seq = arr[0]
     # partial_seq = ['A kid friendly venue named Alimentum is located on the riverside .',
     #                'Alimentum , situated by the river , is quite child friendly .']
 
@@ -103,7 +101,7 @@ def main():
         # put tgt_len -> start
         encoded_partial_seq[0] = th.cat([
             th.tensor(encoded_partial_seq[0][:args.tgt_len]),
-            th.tensor(tokenizer.vocab['PAD_None'] * args.image_size ** 2 - args.tgt_len)
+            th.tensor([tokenizer.vocab['PAD_None']] * (args.image_size ** 2 - args.tgt_len))
         ])
     print(encoded_partial_seq[0], len(encoded_partial_seq[0]))
 
@@ -144,18 +142,10 @@ def main():
             all_images.extend([sample.cpu().numpy() for sample in gathered_samples])
             logger.log(f"created {len(all_images) * args.batch_size} samples")
 
-        arr = np.concatenate(all_images, axis=0)
-        arr = arr[: args.num_samples]
-
-    if dist.get_rank() == 0:
-        shape_str = "x".join([str(x) for x in arr.shape])
-        model_base_name = os.path.basename(os.path.split(args.model_path)[0]) + f'.{os.path.split(args.model_path)[1]}'
-
     dist.barrier()
     logger.log("sampling complete")
 
     if args.verbose == 'yes':
-        word_lst_e2e = []
         print('decoding for e2e', )
         print(sample.shape)
         x_t = sample
