@@ -1,4 +1,94 @@
+import argparse
+import os, json
+
+import numpy as np
 import torch as th
+
+from symbolic_music.rounding import load_embedding_model
+from transformers import set_seed
+import torch.distributed as dist
+from improved_diffusion.test_util import get_weights
+from improved_diffusion import dist_util, logger
+from improved_diffusion.script_util import (
+    model_and_diffusion_defaults,
+    create_model_and_diffusion,
+    args_to_dict, add_dict_to_argparser,
+)
+
+
+def create_argparser():
+    defaults = dict(
+        data_dir="", clip_denoised=False, use_ddim=False, eta=1.0, num_samples=50, batch_size=1, model_path="",
+        out_dir="diffusion_lm/improved_diffusion/out_gen",
+        emb_scale_factor=1.0, split='train', debug_path='', eval_task_='infill',
+        partial_seq="", partial_seq_file="", verbose='yes', tgt_len=15, t_merge=200, interp_coef=0.5, notes='',
+        start_idx=0, end_idx=0,
+    )
+    defaults.update(model_and_diffusion_defaults())
+    parser = argparse.ArgumentParser()
+    add_dict_to_argparser(parser, defaults)
+    return parser
+
+
+def prepare_args():
+    set_seed(101)
+    args = create_argparser().parse_args()
+
+    # load configurations.
+    config_path = os.path.join(os.path.split(args.model_path)[0], "training_args.json")
+    print(config_path)
+    # sys.setdefaultencoding('utf-8')
+    with open(config_path, 'rb', ) as f:
+        training_args = json.load(f)
+    training_args['batch_size'] = args.batch_size
+    args.__dict__.update(training_args)
+
+    args.noise_level = 0.0
+    args.sigma_small = True
+
+    dist_util.setup_dist()
+    logger.configure()
+    print(args.clip_denoised, 'clip_denoised')
+    return args
+
+
+def create_model(args):
+    logger.log("creating model and diffusion...")
+    model, diffusion = create_model_and_diffusion(
+        **args_to_dict(args, model_and_diffusion_defaults().keys())
+    )
+    model.load_state_dict(dist_util.load_state_dict(args.model_path, map_location="cpu"))
+    model.to(dist_util.dev())
+    model.eval()
+    return model, diffusion
+
+
+def create_embedding(args, model):
+    logger.log("load embedding models")
+    print(os.path.split(args.model_path)[0])
+
+    model_embs = load_embedding_model(args)
+    model_embs.weight = th.nn.Parameter(model.word_embedding.weight.clone().cpu())
+    model_embs = model_embs.cuda() if th.cuda.is_available() else model_embs
+    return get_weights(model_embs, args)
+
+
+def save_results(args, samples, midi_list):
+    # sample saving
+    if dist.get_rank() == 0:
+        model_base_name = os.path.basename(os.path.split(args.model_path)[0]) + f'.{os.path.split(args.model_path)[1]}'
+        out_path = os.path.join(args.out_dir, f"{model_base_name}.infill_{args.eval_task_}_{args.notes}.npz")
+        logger.log(f"saving to {out_path}")
+        np.savez(out_path, samples)
+
+    dist.barrier()
+
+    if args.verbose == 'yes':
+        # create midi files
+        for i, midi in enumerate(midi_list):
+            out_path2 = os.path.join(args.out_dir, f"{model_base_name}.infill_{args.eval_task_}_{args.notes}_{i}.mid")
+            midi.dump(out_path2)
+
 
 def get_score(input_embs, label_ids, model_control, t=None):
     label_ids2 = label_ids.clone()
@@ -17,34 +107,35 @@ def get_score(input_embs, label_ids, model_control, t=None):
     return loss.sum(dim=-1).tolist()
 
 
-def langevin_fn3(debug_lst, model_control, model3, label_ids, step_size, sample, mean, sigma,
+def langevin_fn3(debug_lst, model_control, frozen_embedding_model, label_ids, step_size, sample, mean, sigma,
                  alpha, t, prev_sample):  # current best.
     if t[0].item() < 10:
         K = 0
     else:
         K = 3
-    # K = 3
-
     if t[0].item() > 0:
         tt = t[0].item() - 1
     else:
         tt = 200
     label_ids = label_ids.cuda()
-    tgt_embs = model3(label_ids[:, sample.size(1):])
+    # tgt_embs = frozen_embedding_model(label_ids[:, sample.size(1):])  # 只取了label的部分
+    # tgt_embs = frozen_embedding_model(label_ids)
 
     label_ids2 = label_ids.clone()
-    label_ids2[:, :65] = -100
     input_embs_param = th.nn.Parameter(sample)
-    if False:
-        input_embs = th.cat([input_embs_param, tgt_embs], dim=1)
-        debug_lst.append(get_score(input_embs, label_ids2, model_control, t=tt))
+    # if False:
+    #     input_embs = th.cat([input_embs_param, tgt_embs], dim=1)
+    #     debug_lst.append(get_score(input_embs, label_ids2, model_control, t=tt))
     with th.enable_grad():
         for i in range(K):
             optimizer = th.optim.Adagrad([input_embs_param], lr=step_size)
             optimizer.zero_grad()
-            input_embs = th.cat([input_embs_param, tgt_embs], dim=1)
-            model_out = model_control(input_embs=input_embs,
-                                      labels=label_ids2, t=tt)
+            # input_embs = th.cat([input_embs_param, tgt_embs], dim=1)
+            # model_out = model_control(input_embs=input_embs,
+            #                           labels=label_ids2, t=tt)
+            model_out = model_control(
+                input_embs=input_embs_param, labels=label_ids2, t=tt
+            )
 
             coef = 0.01
             # coef=1.
