@@ -49,7 +49,6 @@ class BertNetForPreTraining(BertPreTrainedModel):
         inputs_embeds = self.up_proj(inputs_embeds)
 
         outputs = self.bert(
-            input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
             position_ids=position_ids,
