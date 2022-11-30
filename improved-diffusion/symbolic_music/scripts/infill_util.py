@@ -107,7 +107,7 @@ def get_score(input_embs, label_ids, model_control, t=None):
     return loss.sum(dim=-1).tolist()
 
 
-def langevin_fn3(debug_lst, model_control, frozen_embedding_model, label_ids, step_size, sample, mean, sigma,
+def langevin_fn3(debug_lst, model_control, frozen_embedding_model, labels, step_size, sample, mean, sigma,
                  alpha, t, prev_sample):  # current best.
     if t[0].item() < 10:
         K = 0
@@ -117,11 +117,11 @@ def langevin_fn3(debug_lst, model_control, frozen_embedding_model, label_ids, st
         tt = t[0].item() - 1
     else:
         tt = 200
-    label_ids = label_ids.cuda()
+    # label_ids = label_ids.cuda()
     # tgt_embs = frozen_embedding_model(label_ids[:, sample.size(1):])  # 只取了label的部分
     # tgt_embs = frozen_embedding_model(label_ids)
 
-    label_ids2 = label_ids.clone()
+    # label_ids2 = label_ids.clone()
     input_embs_param = th.nn.Parameter(sample)
     # if False:
     #     input_embs = th.cat([input_embs_param, tgt_embs], dim=1)
@@ -133,8 +133,11 @@ def langevin_fn3(debug_lst, model_control, frozen_embedding_model, label_ids, st
             # input_embs = th.cat([input_embs_param, tgt_embs], dim=1)
             # model_out = model_control(input_embs=input_embs,
             #                           labels=label_ids2, t=tt)
+            # model_out = model_control(
+            #     input_embs=input_embs_param, labels=label_ids2, t=tt
+            # )
             model_out = model_control(
-                input_embs=input_embs_param, labels=label_ids2, t=tt
+                inputs_embeds=input_embs_param, labels=labels
             )
 
             coef = 0.01

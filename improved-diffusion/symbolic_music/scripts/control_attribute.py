@@ -10,7 +10,7 @@ import torch as th
 
 from symbolic_music.rounding import tokens_list_to_midi_list
 from symbolic_music.utils import get_tokenizer
-from transformers import set_seed
+from transformers import set_seed, AutoModelForSequenceClassification, BertConfig
 import torch.distributed as dist
 from improved_diffusion.rounding import rounding_func
 from improved_diffusion.test_util import denoised_fn_round
@@ -29,8 +29,6 @@ def main():
     logger.log('load the partial sequences')
 
     pad_token = tokenizer.vocab['PAD_None']
-    file = './diffusion_models/diff_midi_midi_files_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/padded_tokens_list_valid.npz'
-    arr = np.load(file)['arr_0']
 
     # length = 64
     right_pad = th.empty(args.image_size ** 2).fill_(pad_token).long()
@@ -39,29 +37,26 @@ def main():
     # encoded_partial_seqs[0][args.tgt_len] = tokens2id['END']
 
     if args.eval_task_ == 'control_attribute':
-        model_control = None
-        # model_control = Classifier_GPT2.from_pretrained(
-        #     'predictability/diff_models/e2e-back_e=6_b=10_m=gpt2_wikitext-103-raw-v1_101_wp_full_multi16_t_aware'
-        # ).cuda()
+        config = BertConfig.from_json_file(os.path.join('./classifier_models/bert/bert-config.json'))
+        model_control = AutoModelForSequenceClassification.from_pretrained('./classifier_models/bert/checkpoint-1500')
+        learned_embeddings = th.load(args.model_path, map_location=th.device('cpu'))['word_embedding.weight']
+        model_control.base_model.embeddings.word_embeddings.weight.data = learned_embeddings.clone()
+        model_control.base_model.embeddings.word_embeddings.weight.requires_grad = False
 
-        control_label_lst = []
-        with open('../datasets/control_target/target_attribute.json', 'r') as controlf:
-            for line in controlf:
-                control_label_lst.append(json.loads(line))
+        control_label_lst = [config.label2id["0"], config.label2id["42"]]   # TODO
         control_constraints = []
-        for label_class in control_label_lst:
-            label = [1, 2, 3]
+        for label in control_label_lst:
             # label = [-100] * 64 + [tokens2id.get(x, tokens2id['UNK']) for x in label_class]
-            label_ids = th.tensor(label).unsqueeze(0)
             debug_lst = []
 
             langevin_fn_selected = partial(
                 langevin_fn3, debug_lst, model_control,
                 frozen_embedding_model.cuda() if th.cuda.is_available() else frozen_embedding_model,
-                label_ids.expand(args.batch_size, -1),  # [batch_size, label_length]
+                th.tensor([label]).unsqueeze(0).expand(args.batch_size, -1),
+                # label_ids.expand(args.batch_size, -1),  # [batch_size, label_length]
                 0.1
             )
-            control_constraints.append((langevin_fn_selected, label_class))
+            control_constraints.append((langevin_fn_selected, label))
 
         # [constraint count, img ** 2]  对着每个constraint，做一个seq
         encoded_partial_seqs = [encoded_partial_seqs[0] for _ in range(len(control_constraints))]
@@ -71,7 +66,7 @@ def main():
     print(encoded_partial_seqs[0], len(encoded_partial_seqs[0]))
 
     logger.log("sampling...")
-    for (encoded_seq, (langevin_fn_selected, label_class_attributes)) in zip(encoded_partial_seqs, control_constraints):
+    for (encoded_seq, (langevin_fn_selected, label)) in zip(encoded_partial_seqs, control_constraints):
         all_images = []
         print(args.num_samples, encoded_seq.shape, 'encoded_seq.shape')
         while len(all_images) * args.batch_size < args.num_samples:
@@ -85,7 +80,7 @@ def main():
             sample_shape = (args.batch_size, seqlen, args.in_channel,)
 
             if args.eval_task_.startswith('control'):
-                print('-*' * 200, label_class_attributes, '-*' * 200)
+                print('-*' * 200, label, '-*' * 200)
                 if args.use_ddim:
                     loop_func_ = diffusion.ddim_sample_loop_progressive
                 else:
@@ -94,7 +89,7 @@ def main():
                 for sample in loop_func_(
                         model,
                         sample_shape,
-                        denoised_fn=partial(denoised_fn_round, args, frozen_embedding_model.cuda()),
+                        denoised_fn=partial(denoised_fn_round, args, frozen_embedding_model.cuda() if th.cuda.is_available() else frozen_embedding_model),
                         clip_denoised=args.clip_denoised,
                         model_kwargs=model_kwargs,
                         device=encoded_seq_hidden.device,
