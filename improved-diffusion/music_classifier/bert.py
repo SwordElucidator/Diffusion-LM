@@ -66,8 +66,9 @@ def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
         weight_decay=0.0,
         do_train=True,
         do_eval=True,
-        evaluation_strategy=IntervalStrategy('epoch'),
-        logging_strategy=IntervalStrategy('epoch'),
+        logging_steps=1000,
+        evaluation_strategy=IntervalStrategy('steps'),
+        logging_strategy=IntervalStrategy('steps'),
         save_steps=1000,
         seed=102,
     )
