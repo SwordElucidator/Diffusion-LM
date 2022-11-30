@@ -59,7 +59,7 @@ def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
     model = create_model(data_args, num_labels, id2label, label2id)
     training_args = TrainingArguments(
         output_dir=data_args.output_path,
-        learning_rate=1e-4,
+        # learning_rate=1e-4,
         per_device_train_batch_size=data_args.batch_size,
         per_device_eval_batch_size=data_args.batch_size,
         num_train_epochs=data_args.epoches,
