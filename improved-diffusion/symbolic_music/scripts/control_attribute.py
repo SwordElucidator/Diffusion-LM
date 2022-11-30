@@ -39,8 +39,7 @@ def main():
 
     if args.eval_task_ == 'control_attribute':
         config = BertConfig.from_json_file(os.path.join('./classifier_models/bert/bert-config.json'))
-        model_control = BertNetForSequenceClassification(config)
-        model_control.
+        # model_control = BertNetForSequenceClassification(config)
         model_control = BertNetForSequenceClassification.from_pretrained('./classifier_models/bert/checkpoint-1500')
         learned_embeddings = th.load(args.model_path, map_location=th.device('cpu'))['word_embedding.weight']
         model_control.base_model.embeddings.word_embeddings.weight.data = learned_embeddings.clone()

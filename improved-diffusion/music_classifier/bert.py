@@ -55,7 +55,7 @@ def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
         learning_rate=1e-4,
         per_device_train_batch_size=data_args.batch_size,
         per_device_eval_batch_size=data_args.batch_size,
-        num_train_epochs=20,
+        num_train_epochs=data_args.epoches,
         weight_decay=0.0,
     )
     trainer = Trainer(
@@ -75,6 +75,7 @@ def create_argparser():
         data_path='../datasets/midi/midi_files',
         output_path='./classifier_models/bert/',
         padding_mode='bar_block',
+        epoches=50,
         batch_size=64,
         path_learned='./diffusion_models/diff_midi_midi_files_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/model200000.pt'
     )
