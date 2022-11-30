@@ -44,9 +44,8 @@ def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
     config.vocab_size = len(tokenizer.vocab)
     config.label2id = label2id
     config.id2label = id2label
-    config.input_emb_dim = data_args.input_emb_dim
     config.to_json_file(os.path.join(data_args.output_path, 'bert-config.json'))
-    model = BertNetForSequenceClassification(config)
+    model = BertNetForSequenceClassification(config, data_args.input_emb_dim)
     learned_embeddings = torch.load(data_args.path_learned, map_location=torch.device('cpu'))['word_embedding.weight']
     model.bert.embeddings.word_embeddings.weight.data = learned_embeddings.clone()
     model.bert.embeddings.word_embeddings.weight.requires_grad = False

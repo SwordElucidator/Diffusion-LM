@@ -7,16 +7,16 @@ from torch.nn import CrossEntropyLoss, MSELoss, BCEWithLogitsLoss
 
 
 class BertNetForSequenceClassification(BertPreTrainedModel):
-    def __init__(self, config):
+    def __init__(self, config, input_emb_dim):
         super().__init__(config)
         self.num_labels = config.num_labels
         self.config = config
 
         self.bert = BertModel(config)
-        self.bert.embeddings.word_embeddings = nn.Embedding(config.vocab_size, config.input_emb_dim, )
+        self.bert.embeddings.word_embeddings = nn.Embedding(config.vocab_size, input_emb_dim, )
 
-        self.up_proj = nn.Sequential(nn.Linear(config.input_emb_dim, config.input_emb_dim * 4), nn.Tanh(),
-                                     nn.Linear(config.input_emb_dim * 4, config.hidden_size))
+        self.up_proj = nn.Sequential(nn.Linear(input_emb_dim, input_emb_dim * 4), nn.Tanh(),
+                                     nn.Linear(input_emb_dim * 4, config.hidden_size))
 
         classifier_dropout = (
             config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
