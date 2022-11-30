@@ -12,7 +12,7 @@ from music_classifier.easy_bert_classifier import BertNetForSequenceClassificati
 from symbolic_music.advanced_padding import advanced_remi_bar_block
 from symbolic_music.utils import get_tokenizer
 from transformers import BertConfig, BertModel, AutoModelForSequenceClassification, TrainingArguments, Trainer, \
-    DataCollator, DataCollatorWithPadding
+    DataCollator, DataCollatorWithPadding, IntervalStrategy
 
 
 def create_dataset(data_args, split='train'):
@@ -46,7 +46,10 @@ def create_model(data_args, num_labels, id2label, label2id):
     config.id2label = id2label
     config.to_json_file(os.path.join(data_args.output_path, 'bert-config.json'))
     model = BertNetForSequenceClassification(config, data_args.input_emb_dim)
-    learned_embeddings = torch.load(data_args.path_learned, map_location=torch.device('cpu'))['word_embedding.weight']
+    if torch.cuda.is_available():
+        learned_embeddings = torch.load(data_args.path_learned)['word_embedding.weight']
+    else:
+        learned_embeddings = torch.load(data_args.path_learned, map_location=torch.device('cpu'))['word_embedding.weight']
     model.bert.embeddings.word_embeddings.weight.data = learned_embeddings.clone()
     model.bert.embeddings.word_embeddings.weight.requires_grad = False
     return model
@@ -61,6 +64,12 @@ def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
         per_device_eval_batch_size=data_args.batch_size,
         num_train_epochs=data_args.epoches,
         weight_decay=0.0,
+        do_train=True,
+        do_eval=True,
+        evaluation_strategy=IntervalStrategy('epoch'),
+        logging_strategy=IntervalStrategy('epoch'),
+        save_steps=1000,
+        seed=102,
     )
     trainer = Trainer(
         model=model,
@@ -79,7 +88,7 @@ def create_argparser():
         data_path='../datasets/midi/midi_files',
         output_path='./classifier_models/bert/',
         padding_mode='bar_block',
-        epoches=10,
+        epoches=200,
         batch_size=64,
         path_learned='./diffusion_models/diff_midi_midi_files_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/model200000.pt'
     )
