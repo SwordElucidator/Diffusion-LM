@@ -8,6 +8,7 @@ from datasets import Dataset
 from miditoolkit import MidiFile
 
 from improved_diffusion.script_util import add_dict_to_argparser
+from music_classifier.easy_bert_classifier import BertNetForSequenceClassification
 from symbolic_music.advanced_padding import advanced_remi_bar_block
 from symbolic_music.utils import get_tokenizer
 from transformers import BertConfig, BertModel, AutoModelForSequenceClassification, TrainingArguments, Trainer, \
@@ -41,22 +42,21 @@ def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
     config.num_labels = num_labels
     tokenizer = get_tokenizer(data_args)
     config.vocab_size = len(tokenizer.vocab)
-    config.hidden_size = 32
-    config.num_attention_heads = 8
     config.label2id = label2id
     config.id2label = id2label
+    config.input_emb_dim = data_args.input_emb_dim
     config.to_json_file(os.path.join(data_args.output_path, 'bert-config.json'))
-    model = AutoModelForSequenceClassification.from_config(config)
+    model = BertNetForSequenceClassification(config)
     learned_embeddings = torch.load(data_args.path_learned, map_location=torch.device('cpu'))['word_embedding.weight']
-    model.base_model.embeddings.word_embeddings.weight.data = learned_embeddings.clone()
-    model.base_model.embeddings.word_embeddings.weight.requires_grad = False
+    model.bert.embeddings.word_embeddings.weight.data = learned_embeddings.clone()
+    model.bert.embeddings.word_embeddings.weight.requires_grad = False
     training_args = TrainingArguments(
         output_dir=data_args.output_path,
-        learning_rate=2e-5,
+        learning_rate=1e-4,
         per_device_train_batch_size=data_args.batch_size,
         per_device_eval_batch_size=data_args.batch_size,
-        num_train_epochs=10,
-        weight_decay=0.01,
+        num_train_epochs=20,
+        weight_decay=0.0,
     )
     trainer = Trainer(
         model=model,
@@ -71,6 +71,7 @@ def create_argparser():
     defaults = dict(
         midi_tokenizer='REMI',
         image_size=16,
+        input_emb_dim=32,
         data_path='../datasets/midi/midi_files',
         output_path='./classifier_models/bert/',
         padding_mode='bar_block',
