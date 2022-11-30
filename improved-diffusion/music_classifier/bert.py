@@ -37,7 +37,7 @@ def create_dataset(data_args, split='train'):
     return x, y
 
 
-def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
+def create_model(data_args, num_labels, id2label, label2id):
     config = BertConfig.from_pretrained("bert-base-uncased")
     config.num_labels = num_labels
     tokenizer = get_tokenizer(data_args)
@@ -49,6 +49,11 @@ def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
     learned_embeddings = torch.load(data_args.path_learned, map_location=torch.device('cpu'))['word_embedding.weight']
     model.bert.embeddings.word_embeddings.weight.data = learned_embeddings.clone()
     model.bert.embeddings.word_embeddings.weight.requires_grad = False
+    return model
+
+
+def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
+    model = create_model(data_args, num_labels, id2label, label2id)
     training_args = TrainingArguments(
         output_dir=data_args.output_path,
         learning_rate=1e-4,
@@ -74,7 +79,7 @@ def create_argparser():
         data_path='../datasets/midi/midi_files',
         output_path='./classifier_models/bert/',
         padding_mode='bar_block',
-        epoches=50,
+        epoches=10,
         batch_size=64,
         path_learned='./diffusion_models/diff_midi_midi_files_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/model200000.pt'
     )
@@ -83,8 +88,7 @@ def create_argparser():
     return parser
 
 
-if __name__ == '__main__':
-    args = create_argparser().parse_args()
+def create_data(args):
     x_train, y_train = create_dataset(args, 'train')
     x_valid, y_valid = create_dataset(args, 'valid')
     # 处理一下行为
@@ -97,4 +101,9 @@ if __name__ == '__main__':
     y_valid_cleaned = [label2id[(str(y) if y in large_indexes else '-1')] for y in y_valid]
     data_train = [{"label": y, "input_ids": torch.tensor(x)} for x, y in zip(x_train, y_train_cleaned)]
     data_valid = [{"label": y, "input_ids": torch.tensor(x)} for x, y in zip(x_valid, y_valid_cleaned)]
-    train(args, data_train, data_valid, len(large_indexes) + 1, id2label, label2id)
+    return data_train, data_valid, len(large_indexes) + 1, id2label, label2id
+
+
+if __name__ == '__main__':
+    args = create_argparser().parse_args()
+    train(args, *create_data(args))
