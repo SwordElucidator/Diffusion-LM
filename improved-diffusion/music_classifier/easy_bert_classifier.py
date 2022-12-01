@@ -5,7 +5,43 @@ from torch import nn
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 from torch.nn import CrossEntropyLoss, MSELoss, BCEWithLogitsLoss
 
-from transformers.models.bert.modeling_bert import BertForPreTrainingOutput, BertPreTrainingHeads
+from transformers.models.bert.modeling_bert import BertForPreTrainingOutput, BertPreTrainingHeads, \
+    BertPredictionHeadTransform
+
+
+class BertNetLMPredictionHead(nn.Module):
+    def __init__(self, config, input_emb_dim):
+        super().__init__()
+        self.transform = BertPredictionHeadTransform(config)
+
+        # The output weights are the same as the input embeddings, but there is
+        # an output-only bias for each token.
+        self.down_proj = nn.Sequential(nn.Linear(config.hidden_size, input_emb_dim * 4), nn.Tanh(),
+                                       nn.Linear(input_emb_dim * 4, input_emb_dim))
+        self.decoder = nn.Linear(input_emb_dim, config.vocab_size, bias=False)
+
+        self.bias = nn.Parameter(torch.zeros(config.vocab_size))
+
+        # Need a link between the two variables so that the bias is correctly resized with `resize_token_embeddings`
+        self.decoder.bias = self.bias
+
+    def forward(self, hidden_states):
+        hidden_states = self.transform(hidden_states)
+        hidden_states = self.down_proj(hidden_states)
+        hidden_states = self.decoder(hidden_states)
+        return hidden_states
+
+
+class BertNetPreTrainingHeads(nn.Module):
+    def __init__(self, config, input_emb_dim):
+        super().__init__()
+        self.predictions = BertNetLMPredictionHead(config, input_emb_dim)
+        self.seq_relationship = nn.Linear(config.hidden_size, 2)
+
+    def forward(self, sequence_output, pooled_output):
+        prediction_scores = self.predictions(sequence_output)
+        seq_relationship_score = self.seq_relationship(pooled_output)
+        return prediction_scores, seq_relationship_score
 
 
 class BertNetForPreTraining(BertPreTrainedModel):
@@ -16,10 +52,12 @@ class BertNetForPreTraining(BertPreTrainedModel):
         self.bert.embeddings.word_embeddings = nn.Embedding(config.vocab_size, input_emb_dim, )
         self.up_proj = nn.Sequential(nn.Linear(input_emb_dim, input_emb_dim * 4), nn.Tanh(),
                                      nn.Linear(input_emb_dim * 4, config.hidden_size))
-        self.cls = BertPreTrainingHeads(config)
+        self.cls = BertNetPreTrainingHeads(config, input_emb_dim)
 
         # Initialize weights and apply final processing
         self.post_init()
+
+        # self.lm_head2 = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
 
     def get_output_embeddings(self):
         return self.cls.predictions.decoder
@@ -58,7 +96,10 @@ class BertNetForPreTraining(BertPreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
-
+        # if isinstance(outputs, dict):
+        #     outputs['last_hidden_state'] = self.lm_head2(outputs['last_hidden_state'])
+        # else:
+        #     outputs[0] = self.lm_head2(outputs[0])
         sequence_output, pooled_output = outputs[:2]
         prediction_scores, seq_relationship_score = self.cls(sequence_output, pooled_output)
 
@@ -80,6 +121,7 @@ class BertNetForPreTraining(BertPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
 
 class BertNetPretrainedModel(BertPreTrainedModel):
     def __init__(self, config, input_emb_dim):
