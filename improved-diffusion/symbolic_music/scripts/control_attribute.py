@@ -53,7 +53,7 @@ def main():
             debug_lst = []
 
             langevin_fn_selected = partial(
-                langevin_fn3, debug_lst, model_control,
+                langevin_fn3, debug_lst, model_control.cuda() if th.cuda.is_available() else model_control,
                 frozen_embedding_model.cuda() if th.cuda.is_available() else frozen_embedding_model,
                 th.tensor([label]).unsqueeze(0).expand(args.batch_size, -1),
                 # label_ids.expand(args.batch_size, -1),  # [batch_size, label_length]
