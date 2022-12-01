@@ -41,8 +41,12 @@ def main():
     if args.eval_task_ == 'control_attribute':
         config = BertConfig.from_json_file(os.path.join('./classifier_models/bert/bert-config.json'))
         model_control = TransformerNetClassifierModel(config, args.in_channel, 128)
-        model_control.load_state_dict(th.load('./classifier_models/bert/checkpoint-10000/pytorch_model.bin', map_location=th.device('cpu')))
-        learned_embeddings = th.load(args.model_path, map_location=th.device('cpu'))['word_embedding.weight']
+        if th.cuda.is_available():
+            model_control.load_state_dict(th.load('./classifier_models/bert/checkpoint-10000/pytorch_model.bin'))
+            learned_embeddings = th.load(args.model_path)['word_embedding.weight']
+        else:
+            model_control.load_state_dict(th.load('./classifier_models/bert/checkpoint-10000/pytorch_model.bin', map_location=th.device('cpu')))
+            learned_embeddings = th.load(args.model_path, map_location=th.device('cpu'))['word_embedding.weight']
         model_control.transformer_net.word_embedding.weight.data = learned_embeddings.clone()
         model_control.transformer_net.word_embedding.weight.requires_grad = False
 
@@ -100,35 +104,32 @@ def main():
                         eta=args.eta,
                 ):
                     final = sample["sample"]
-                try:
-                    import pdb
-                    pdb.set_trace()
-                    with open(f'debug_lst_lgv_{args.notes}.json', 'w') as f:
-                        json.dump(debug_lst, f)
-                    label_ids = label_ids.expand(args.batch_size, -1).cuda()
-                    tgt_embs = frozen_embedding_model(label_ids[:, final.size(1):])
-
-                    label_ids2 = th.cat([label_ids[:, :final.size(1)], label_ids], dim=1)
-                    label_ids2[:, :64 * 2 + 1] = -100
-                    tt = th.LongTensor([0]).expand(final.size(0)).to(final.device)
-                    prev_sample = diffusion.q_sample(final, tt)
-                    input_embs = th.cat([final, prev_sample, tgt_embs], dim=1)
-                    model_out = model_control(input_embs=input_embs,
-                                              labels=label_ids2)
-                    print(model_out.loss, 'final end')
-                    loss_fn = th.nn.CrossEntropyLoss(reduction='none')
-                    shifted_logits = model_out.logits[:, :-1].contiguous()
-                    shifted_labels = label_ids2[:, 1:].contiguous()
-                    loss = loss_fn(shifted_logits.view(-1, shifted_logits.size(-1)),
-                                   shifted_labels.view(-1)).reshape(shifted_labels.shape)
-                    print(loss.sum(dim=-1).tolist())
-                    word_lst = rounding_func(args.experiment, final, frozen_embedding_model, tokenizer)
-                    print(len(word_lst))
-                    for ww, ll in zip(word_lst, loss.sum(dim=-1).tolist()):
-                        print([ww], ll)
-                except Exception as e:
-                    import pdb
-                    pdb.set_trace()
+                # try:
+                #     import pdb
+                #     pdb.set_trace()
+                #     label_ids = th.tensor([label]).expand(args.batch_size).cuda()
+                #     tgt_embs = frozen_embedding_model(label_ids[:, final.size(1):])
+                #
+                #     label_ids2 = th.cat([label_ids[:, :final.size(1)], label_ids], dim=1)
+                #     label_ids2[:, :64 * 2 + 1] = -100
+                #     tt = th.LongTensor([0]).expand(final.size(0)).to(final.device)
+                #     prev_sample = diffusion.q_sample(final, tt)
+                #     input_embs = th.cat([final, prev_sample, tgt_embs], dim=1)
+                #     model_out = model_control(imput_embed=input_embs, labels=label_ids2)
+                #     print(model_out.loss, 'final end')
+                #     loss_fn = th.nn.CrossEntropyLoss(reduction='none')
+                #     shifted_logits = model_out.logits[:, :-1].contiguous()
+                #     shifted_labels = label_ids2[:, 1:].contiguous()
+                #     loss = loss_fn(shifted_logits.view(-1, shifted_logits.size(-1)),
+                #                    shifted_labels.view(-1)).reshape(shifted_labels.shape)
+                #     print(loss.sum(dim=-1).tolist())
+                #     word_lst = rounding_func(args.experiment, final, frozen_embedding_model, tokenizer)
+                #     print(len(word_lst))
+                #     for ww, ll in zip(word_lst, loss.sum(dim=-1).tolist()):
+                #         print([ww], ll)
+                # except Exception as e:
+                #     import pdb
+                #     pdb.set_trace()
 
             sample = final
             gathered_samples = [th.zeros_like(sample) for _ in range(dist.get_world_size())]
