@@ -136,10 +136,8 @@ def langevin_fn3(debug_lst, model_control, frozen_embedding_model, labels, step_
             # model_out = model_control(
             #     input_embs=input_embs_param, labels=label_ids2, t=tt
             # )
-            import pdb
-            pdb.set_trace()
             model_out = model_control(
-                None, imput_embed=input_embs_param, labels=labels, timesteps=th.tensor([0] * sample.size(0))
+                None, imput_embed=input_embs_param, labels=labels, timesteps=th.tensor([0] * sample.size(0)).cuda()
             )
 
             coef = 0.01
