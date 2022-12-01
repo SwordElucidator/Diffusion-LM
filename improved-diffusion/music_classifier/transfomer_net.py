@@ -116,7 +116,7 @@ class TransformerNetClassifierModel(nn.Module):
         self.classifier = nn.Linear(self.config.hidden_size, self.config.num_labels)
 
     def forward(self, input_ids, labels, timesteps, imput_embed=None):
-        if not imput_embed:
+        if imput_embed is None:
             imput_embed = self.transformer_net.word_embedding(input_ids)
         hidden_state = self.transformer_net.get_hidden_state(imput_embed, timesteps)
         pooled_output = self.pooler(hidden_state)

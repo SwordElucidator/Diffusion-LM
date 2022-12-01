@@ -137,7 +137,7 @@ def langevin_fn3(debug_lst, model_control, frozen_embedding_model, labels, step_
             #     input_embs=input_embs_param, labels=label_ids2, t=tt
             # )
             model_out = model_control(
-                inputs_embeds=input_embs_param, labels=labels
+                None, imput_embed=input_embs_param, labels=labels, timesteps=th.tensor([0] * sample.size(0))
             )
 
             coef = 0.01
