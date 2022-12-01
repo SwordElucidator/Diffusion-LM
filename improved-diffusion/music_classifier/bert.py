@@ -8,12 +8,10 @@ from datasets import Dataset
 from miditoolkit import MidiFile
 
 from improved_diffusion.script_util import add_dict_to_argparser
-from music_classifier.easy_bert_classifier import BertNetForSequenceClassification, BertNetForPreTraining
 from music_classifier.transfomer_net import TransformerNetClassifierModel
 from symbolic_music.advanced_padding import advanced_remi_bar_block
 from symbolic_music.utils import get_tokenizer
-from transformers import BertConfig, BertModel, AutoModelForSequenceClassification, TrainingArguments, Trainer, \
-    DataCollator, DataCollatorWithPadding, IntervalStrategy
+from transformers import BertConfig, TrainingArguments, Trainer, IntervalStrategy
 
 
 def create_dataset(data_args, split='train'):
@@ -38,7 +36,7 @@ def create_dataset(data_args, split='train'):
     return x, y
 
 
-def create_model(data_args, num_labels, id2label, label2id):
+def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
     config = BertConfig.from_pretrained("bert-base-uncased")
     config.num_labels = num_labels
     tokenizer = get_tokenizer(data_args)
@@ -48,10 +46,13 @@ def create_model(data_args, num_labels, id2label, label2id):
     config.to_json_file(os.path.join(data_args.output_path, 'bert-config.json'))
     model = TransformerNetClassifierModel(config, data_args.input_emb_dim, 128)
     if torch.cuda.is_available():
-        weight = torch.load(data_args.path_learned)
+        weight = torch.load(data_args.path_trained if is_eval else data_args.path_learned)
     else:
-        weight = torch.load(data_args.path_learned, map_location=torch.device('cpu'))
-    model.transformer_net.load_state_dict(weight)
+        weight = torch.load(data_args.path_trained if is_eval else data_args.path_learned, map_location=torch.device('cpu'))
+    if is_eval:
+        model.load_state_dict(weight)
+    else:
+        model.transformer_net.load_state_dict(weight)
     model.transformer_net.word_embedding.weight.requires_grad = False
     return model
 
@@ -93,6 +94,7 @@ def create_argparser():
         epoches=30,
         batch_size=64,
         task='train',
+        path_trained='./classifier_models/bert/checkpoint-10000/pytorch_model.bin',
         path_learned='./diffusion_models/diff_midi_midi_files_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/model200000.pt'
     )
     parser = argparse.ArgumentParser()
@@ -116,7 +118,28 @@ def create_data(args):
     return data_train, data_valid, len(large_indexes) + 1, id2label, label2id
 
 
+def eval(data_args):
+    print('start evaluation task...')
+    _, data_valid, num_labels, id2label, label2id = create_data(data_args)
+    model = create_model(data_args, num_labels, id2label, label2id, is_eval=True)
+    loss = 0
+    correct = 0
+    with torch.no_grad():
+        for i in range(0, len(data_valid), data_args.batch_size):
+            splitted_set = data_valid[i: i + data_args.batch_size]
+            input_ids = torch.cat([i['input_ids'].unsqueeze(0) for i in splitted_set])
+            label = torch.tensor([i['label'] for i in splitted_set])
+            timesteps = torch.tensor([i['timesteps'] for i in splitted_set])
+            output = model(input_ids=input_ids, labels=label, timesteps=timesteps)
+            loss += output.loss * len(input_ids)
+            correct += sum(torch.argmax(output.logits, dim=1) == label)
+    print(f"loss: {loss / len(data_valid)}")
+    print(f"acc: {correct / len(data_valid)}")
+
+
 if __name__ == '__main__':
     args = create_argparser().parse_args()
     if args.task == 'train':
         train(args, *create_data(args))
+    if args.task == 'eval':
+        eval(args)

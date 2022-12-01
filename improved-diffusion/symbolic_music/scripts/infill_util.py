@@ -75,19 +75,24 @@ def create_embedding(args, model):
 
 def save_results(args, samples, midi_list):
     # sample saving
-    if dist.get_rank() == 0:
-        model_base_name = os.path.basename(os.path.split(args.model_path)[0]) + f'.{os.path.split(args.model_path)[1]}'
-        out_path = os.path.join(args.out_dir, f"{model_base_name}.infill_{args.eval_task_}_{args.notes}.npz")
-        logger.log(f"saving to {out_path}")
-        np.savez(out_path, samples)
+    try:
+        samples = samples.cpu()
+        if dist.get_rank() == 0:
+            model_base_name = os.path.basename(os.path.split(args.model_path)[0]) + f'.{os.path.split(args.model_path)[1]}'
+            out_path = os.path.join(args.out_dir, f"{model_base_name}.infill_{args.eval_task_}_{args.notes}.npz")
+            logger.log(f"saving to {out_path}")
+            np.savez(out_path, samples)
 
-    dist.barrier()
+        dist.barrier()
 
-    if args.verbose == 'yes':
-        # create midi files
-        for i, midi in enumerate(midi_list):
-            out_path2 = os.path.join(args.out_dir, f"{model_base_name}.infill_{args.eval_task_}_{args.notes}_{i}.mid")
-            midi.dump(out_path2)
+        if args.verbose == 'yes':
+            # create midi files
+            for i, midi in enumerate(midi_list):
+                out_path2 = os.path.join(args.out_dir, f"{model_base_name}.infill_{args.eval_task_}_{args.notes}_{i}.mid")
+                midi.dump(out_path2)
+    except Exception as e:
+        import pdb
+        pdb.set_trace()
 
 
 def get_score(input_embs, label_ids, model_control, t=None):

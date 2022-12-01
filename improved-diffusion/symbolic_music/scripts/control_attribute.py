@@ -56,7 +56,7 @@ def main():
                 langevin_fn3, debug_lst, model_control.cuda() if th.cuda.is_available() else model_control,
                 frozen_embedding_model.cuda() if th.cuda.is_available() else frozen_embedding_model,
                 # th.tensor([label]).expand(args.batch_size, -1),
-                th.tensor([label]).expand(args.batch_size).cuda(),
+                th.tensor([label]).expand(args.batch_size).cuda() if th.cuda.is_available() else th.tensor([label]).expand(args.batch_size),
                 # label_ids.expand(args.batch_size, -1),  # [batch_size, label_length]
                 0.1
             )
