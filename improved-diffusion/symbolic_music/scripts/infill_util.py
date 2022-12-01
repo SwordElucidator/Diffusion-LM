@@ -57,7 +57,10 @@ def create_model(args):
     model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
-    model.load_state_dict(dist_util.load_state_dict(args.model_path, map_location="cpu"))
+    if th.cuda.is_available():
+        model.load_state_dict(dist_util.load_state_dict(args.model_path))
+    else:
+        model.load_state_dict(dist_util.load_state_dict(args.model_path, map_location="cpu"))
     model.to(dist_util.dev())
     model.eval()
     return model, diffusion
@@ -68,7 +71,10 @@ def create_embedding(args, model):
     print(os.path.split(args.model_path)[0])
 
     model_embs = load_embedding_model(args)
-    model_embs.weight = th.nn.Parameter(model.word_embedding.weight.clone().cpu())
+    if th.cuda.is_available():
+        model_embs.weight = th.nn.Parameter(model.word_embedding.weight.clone())
+    else:
+        model_embs.weight = th.nn.Parameter(model.word_embedding.weight.clone().cpu())
     model_embs = model_embs.cuda() if th.cuda.is_available() else model_embs
     return get_weights(model_embs, args)
 
