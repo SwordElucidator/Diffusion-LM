@@ -3,18 +3,13 @@ Generate a large batch of image samples from a model and save them as a large
 numpy array. This can be used to produce samples for FID evaluation.
 """
 
-import argparse
 import os, json, sys
-import numpy as np
 import torch as th
-
-from music_classifier.easy_bert_classifier import BertNetForSequenceClassification
 from music_classifier.transfomer_net import TransformerNetClassifierModel
 from symbolic_music.rounding import tokens_list_to_midi_list
 from symbolic_music.utils import get_tokenizer
-from transformers import set_seed, AutoModelForSequenceClassification, BertConfig
+from transformers import set_seed, BertConfig
 import torch.distributed as dist
-from improved_diffusion.rounding import rounding_func
 from improved_diffusion.test_util import denoised_fn_round
 from functools import partial
 from improved_diffusion import logger
@@ -40,7 +35,7 @@ def main():
 
     if args.eval_task_ == 'control_attribute':
         config = BertConfig.from_json_file(os.path.join('./classifier_models/bert/bert-config.json'))
-        model_control = TransformerNetClassifierModel(config, args.in_channel, 128)
+        model_control = TransformerNetClassifierModel(config, args.in_channel)
         model_control.load_state_dict(th.load('./classifier_models/bert/checkpoint-10000/pytorch_model.bin', map_location=th.device('cpu')))
         learned_embeddings = th.load(args.model_path, map_location=th.device('cpu'))['word_embedding.weight']
         model_control.transformer_net.word_embedding.weight.data = learned_embeddings.clone()

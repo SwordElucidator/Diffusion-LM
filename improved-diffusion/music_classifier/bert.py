@@ -1,13 +1,14 @@
 import argparse
+import json
 import os
 from collections import Counter
 
 import numpy as np
 import torch
-from datasets import Dataset
 from miditoolkit import MidiFile
 
-from improved_diffusion.script_util import add_dict_to_argparser
+from improved_diffusion.script_util import add_dict_to_argparser, create_model_and_diffusion, \
+    model_and_diffusion_defaults, args_to_dict
 from music_classifier.transfomer_net import TransformerNetClassifierModel
 from symbolic_music.advanced_padding import advanced_remi_bar_block
 from symbolic_music.utils import get_tokenizer
@@ -44,7 +45,13 @@ def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
     config.label2id = label2id
     config.id2label = id2label
     config.to_json_file(os.path.join(data_args.output_path, 'bert-config.json'))
-    model = TransformerNetClassifierModel(config, data_args.input_emb_dim, 128)
+    with open(os.path.join(*os.path.split(data_args.path_learned)[:-1], 'training_args.json'), 'r') as f:
+        train_config = json.load(f)
+    temp_dict = model_and_diffusion_defaults()
+    temp_dict.update(train_config)
+    _, diffusion = create_model_and_diffusion(**temp_dict)
+
+    model = TransformerNetClassifierModel(config, data_args.input_emb_dim, diffusion)
     if torch.cuda.is_available():
         weight = torch.load(data_args.path_trained if is_eval else data_args.path_learned)
     else:
@@ -52,7 +59,7 @@ def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
     if is_eval:
         model.load_state_dict(weight)
     else:
-        model.transformer_net.load_state_dict(weight)
+        model.transformer_net.load_state_dict(weight, strict=False)
     model.transformer_net.word_embedding.weight.requires_grad = False
     return model
 
@@ -94,7 +101,7 @@ def create_argparser():
         epoches=30,
         batch_size=64,
         task='train',
-        path_trained='./classifier_models/bert/checkpoint-10000/pytorch_model.bin',
+        path_trained='./classifier_models/bert/checkpoint-5000/pytorch_model.bin',
         path_learned='./diffusion_models/diff_midi_midi_files_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/model200000.pt'
     )
     parser = argparse.ArgumentParser()
@@ -113,8 +120,8 @@ def create_data(args):
         label2id[str(index)] = id_ + 1
     y_train_cleaned = [label2id[(str(y) if y in large_indexes else '-1')] for y in y_train]
     y_valid_cleaned = [label2id[(str(y) if y in large_indexes else '-1')] for y in y_valid]
-    data_train = [{"label": y, "input_ids": torch.tensor(x), "timesteps": 0} for x, y in zip(x_train, y_train_cleaned)]
-    data_valid = [{"label": y, "input_ids": torch.tensor(x), "timesteps": 0} for x, y in zip(x_valid, y_valid_cleaned)]
+    data_train = [{"label": y, "input_ids": torch.tensor(x)} for x, y in zip(x_train, y_train_cleaned)]
+    data_valid = [{"label": y, "input_ids": torch.tensor(x)} for x, y in zip(x_valid, y_valid_cleaned)]
     return data_train, data_valid, len(large_indexes) + 1, id2label, label2id
 
 

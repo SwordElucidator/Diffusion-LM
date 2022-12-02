@@ -3,25 +3,21 @@ from transformers.modeling_outputs import SequenceClassifierOutput
 from transformers.models.bert.modeling_bert import BertEncoder, BertPooler
 import torch
 import torch.nn as nn
-from improved_diffusion.nn import (
-    SiLU,
-    linear,
-    timestep_embedding,
-)
 
 
-class TransformerNetModel(nn.Module):
+class TimedTransformerNetModel(nn.Module):
     def __init__(
         self,
         config,
         in_channels,  # embedding size for the notes  (channels of input tensor)   e.g. 16 / 32 / 128
-        model_channels,  # 128, the channel count of the model
         out_channels,  # output channels (embedding size) = in_channels (since discrete data)
+        diffusion
     ):
         super().__init__()
 
         self.in_channels = in_channels
-        self.model_channels = model_channels
+        self.diffusion = diffusion  # add diffusion to the net model
+        self.train_diff_steps = 2000  # TODO config
 
         # embedding layer  shape -> [*shape, in_channels]
         self.word_embedding = nn.Embedding(config.vocab_size, self.in_channels)
@@ -30,13 +26,7 @@ class TransformerNetModel(nn.Module):
         with torch.no_grad():
             self.lm_head.weight = self.word_embedding.weight
 
-        time_embed_dim = model_channels * 4
-        # time embedding    128 -> 512 -> 768 (bert base hidden size)
-        self.time_embed = nn.Sequential(
-            linear(model_channels, time_embed_dim),
-            SiLU(),
-            linear(time_embed_dim, config.hidden_size),
-        )
+        self.time_embeddings = nn.Embedding(self.train_diff_steps + 1, config.hidden_size)
         # in_channels -> 768(hidden_size) -> 768(hidden_size)
         self.input_up_proj = nn.Sequential(
             nn.Linear(in_channels, config.hidden_size),
@@ -71,21 +61,34 @@ class TransformerNetModel(nn.Module):
         # in_channels (~16) -> vocab_size
         return self.lm_head(hidden_repr)
 
-    def get_hidden_state(self, x, timesteps):
+    def get_hidden_state(self, x, timesteps=None):
+        if self.diffusion is not None:
+            # sample t
+            t = torch.randint(-1, self.train_diff_steps, (x.shape[0],)).to(x.device)
+            t_mask = (t >= 0)
+            input_embs_rand = self.diffusion.q_sample(x, t)
+            x[t_mask] = input_embs_rand[t_mask]
+            t[~t_mask] = self.train_diff_steps
+            time_emb = self.time_embeddings(t).unsqueeze(1)
+
+        elif self.diffusion is None and timesteps is not None:
+            t = torch.LongTensor([timesteps]).expand(x.size(0)).to(self.device)
+            time_emb = self.time_embeddings(t).unsqueeze(1)
+        else:
+            raise NotImplementedError
         #  timesteps  (1,2,3,4...)  ->    sine positional embedding    ->     128 -> 512 -> 768
         # in_channels (16) -> 768(hidden_size) -> 768(hidden_size)
         emb_x = self.input_up_proj(x)
         seq_length = x.size(1)
         position_ids = self.position_ids[:, : seq_length]
-        # print(emb_x.shape, emb.shape, self.position_embeddings)
-        emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
-        emb_inputs = self.position_embeddings(position_ids) + emb_x + emb.unsqueeze(1).expand(-1, seq_length, -1)
+
+        emb_inputs = self.position_embeddings(position_ids) + emb_x + time_emb.expand(-1, seq_length, -1)
         emb_inputs = self.dropout(self.LayerNorm(emb_inputs))
 
         # 768 -> 768
         return self.input_transformers(emb_inputs).last_hidden_state
 
-    def forward(self, x, timesteps):
+    def forward(self, x, timesteps=None):
         # (,768) -> (,16)
         h = self.output_down_proj(self.get_hidden_state(x, timesteps))
         h = h.type(x.dtype)
@@ -93,7 +96,7 @@ class TransformerNetModel(nn.Module):
 
 
 class TransformerNetClassifierModel(nn.Module):
-    def __init__(self, config, in_channels, model_channels):
+    def __init__(self, config, in_channels, diffusion):
         super().__init__()
         # load bert config
         # config = AutoConfig.from_pretrained(config_name)
@@ -101,8 +104,8 @@ class TransformerNetClassifierModel(nn.Module):
         # config.max_position_embeddings = max_position_embeddings
         self.config = config
         self.num_labels = config.num_labels
-        self.transformer_net = TransformerNetModel(
-            config, in_channels, model_channels, in_channels
+        self.transformer_net = TimedTransformerNetModel(
+            config, in_channels, in_channels, diffusion
         )
 
         self.pooler = BertPooler(config)
@@ -115,7 +118,8 @@ class TransformerNetClassifierModel(nn.Module):
         self.dropout = nn.Dropout(classifier_dropout)
         self.classifier = nn.Linear(self.config.hidden_size, self.config.num_labels)
 
-    def forward(self, input_ids, labels, timesteps, imput_embed=None):
+    def forward(self, input_ids, labels, timesteps=None, imput_embed=None):
+        # 只有eval的时候传timesteps
         if imput_embed is None:
             imput_embed = self.transformer_net.word_embedding(input_ids)
         hidden_state = self.transformer_net.get_hidden_state(imput_embed, timesteps)
