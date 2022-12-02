@@ -36,7 +36,7 @@ def main():
     if args.eval_task_ == 'control_attribute':
         config = BertConfig.from_json_file(os.path.join('./classifier_models/bert/bert-config.json'))
         model_control = TransformerNetClassifierModel(config, args.in_channel)
-        model_control.load_state_dict(th.load('./classifier_models/bert/checkpoint-10000/pytorch_model.bin', map_location=th.device('cpu')))
+        model_control.load_state_dict(th.load('./classifier_models/bert/checkpoint-30000/pytorch_model.bin', map_location=th.device('cpu')))
         learned_embeddings = th.load(args.model_path, map_location=th.device('cpu'))['word_embedding.weight']
         model_control.transformer_net.word_embedding.weight.data = learned_embeddings.clone()
         model_control.transformer_net.word_embedding.weight.requires_grad = False
