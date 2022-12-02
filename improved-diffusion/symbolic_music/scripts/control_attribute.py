@@ -41,7 +41,7 @@ def main():
         model_control.transformer_net.word_embedding.weight.data = learned_embeddings.clone()
         model_control.transformer_net.word_embedding.weight.requires_grad = False
 
-        control_label_lst = [config.label2id["0"], config.label2id["42"]]   # TODO
+        control_label_lst = [config.label2id["0"], config.label2id["42"], config.label2id["52", config.label2id["70"]]]   # TODO
         control_constraints = []
         for label in control_label_lst:
             # label = [-100] * 64 + [tokens2id.get(x, tokens2id['UNK']) for x in label_class]
