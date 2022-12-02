@@ -11,7 +11,7 @@ class TimedTransformerNetModel(nn.Module):
         config,
         in_channels,  # embedding size for the notes  (channels of input tensor)   e.g. 16 / 32 / 128
         out_channels,  # output channels (embedding size) = in_channels (since discrete data)
-        diffusion
+        diffusion=None
     ):
         super().__init__()
 
@@ -96,7 +96,7 @@ class TimedTransformerNetModel(nn.Module):
 
 
 class TransformerNetClassifierModel(nn.Module):
-    def __init__(self, config, in_channels, diffusion):
+    def __init__(self, config, in_channels, diffusion=None):
         super().__init__()
         # load bert config
         # config = AutoConfig.from_pretrained(config_name)
@@ -105,7 +105,7 @@ class TransformerNetClassifierModel(nn.Module):
         self.config = config
         self.num_labels = config.num_labels
         self.transformer_net = TimedTransformerNetModel(
-            config, in_channels, in_channels, diffusion
+            config, in_channels, in_channels, diffusion=diffusion
         )
 
         self.pooler = BertPooler(config)
