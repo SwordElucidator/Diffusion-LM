@@ -129,15 +129,15 @@ def main():
             all_images.extend([sample.cpu().numpy() for sample in gathered_samples])
             logger.log(f"created {len(all_images) * args.batch_size} samples")
 
-    dist.barrier()
-    logger.log("sampling complete")
+        dist.barrier()
+        logger.log("sampling complete")
 
-    print('decoding for e2e', )
-    print(sample.shape)
-    x_t = sample
-    logits = model.get_logits(x_t)  # bsz, seqlen, vocab
-    cands = th.topk(logits, k=1, dim=-1)
-    save_results(args, sample, tokens_list_to_midi_list(args, cands.indices))
+        print('decoding for e2e', )
+        print(sample.shape)
+        x_t = sample
+        logits = model.get_logits(x_t)  # bsz, seqlen, vocab
+        cands = th.topk(logits, k=1, dim=-1)
+        save_results(args, sample, tokens_list_to_midi_list(args, cands.indices), config.id2label[label])
 
     # args.out_path2 = out_path2
     return args

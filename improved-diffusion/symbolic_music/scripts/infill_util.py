@@ -73,7 +73,7 @@ def create_embedding(args, model):
     return get_weights(model_embs, args)
 
 
-def save_results(args, samples, midi_list):
+def save_results(args, samples, midi_list, extra_id=None):
     # sample saving
     try:
         samples = samples.cpu()
@@ -88,7 +88,7 @@ def save_results(args, samples, midi_list):
         if args.verbose == 'yes':
             # create midi files
             for i, midi in enumerate(midi_list):
-                out_path2 = os.path.join(args.out_dir, f"{model_base_name}.infill_{args.eval_task_}_{args.notes}_{i}.mid")
+                out_path2 = os.path.join(args.out_dir, f"{model_base_name}.infill_{args.eval_task_}_{args.notes}_{extra_id or ''}_{i}.mid")
                 midi.dump(out_path2)
     except Exception as e:
         import pdb
