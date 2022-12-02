@@ -72,10 +72,7 @@ class TimedTransformerNetModel(nn.Module):
             time_emb = self.time_embeddings(t).unsqueeze(1)
 
         elif self.diffusion is None and timesteps is not None:
-            import pdb
-            pdb.set_trace()
-            t = torch.LongTensor([timesteps]).expand(x.size(0)).to(self.device)
-            time_emb = self.time_embeddings(t).unsqueeze(1)
+            time_emb = self.time_embeddings(timesteps).unsqueeze(1)
         else:
             raise NotImplementedError
         #  timesteps  (1,2,3,4...)  ->    sine positional embedding    ->     128 -> 512 -> 768
