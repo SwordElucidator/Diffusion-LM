@@ -232,6 +232,8 @@ def create_data(args):
 def create_giant_data(args):
     x_train, y_train = create_giant_dataset(args, 'train')
     x_valid, y_valid = create_giant_dataset(args, 'valid')
+    print(Counter(y_train))
+    print(Counter(y_valid))
     large_indexes = set(y_train)
     label2id, id2label = {}, {}
     for id_, index in enumerate(large_indexes):
