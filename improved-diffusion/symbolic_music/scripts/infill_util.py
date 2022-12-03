@@ -23,6 +23,8 @@ def create_argparser():
         emb_scale_factor=1.0, split='train', debug_path='', eval_task_='infill',
         partial_seq="", partial_seq_file="", verbose='yes', tgt_len=15, t_merge=200, interp_coef=0.5, notes='',
         start_idx=0, end_idx=0,
+        control_model_type='normal',
+        control_model_path='./classifier_models/bert/checkpoint-30000/pytorch_model.bin',
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
@@ -142,7 +144,7 @@ def langevin_fn3(debug_lst, model_control, frozen_embedding_model, labels, step_
             #     input_embs=input_embs_param, labels=label_ids2, t=tt
             # )
             model_out = model_control(
-                None, imput_embed=input_embs_param, labels=labels, timesteps=t
+                None, imput_embed=input_embs_param, labels=labels, timesteps=tt
             )
 
             coef = 0.01

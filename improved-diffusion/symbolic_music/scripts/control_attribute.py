@@ -5,6 +5,8 @@ numpy array. This can be used to produce samples for FID evaluation.
 
 import os, json, sys
 import torch as th
+
+from music_classifier.simplified_transformer_net import SimplifiedTransformerNetClassifierModel
 from music_classifier.transfomer_net import TransformerNetClassifierModel
 from symbolic_music.rounding import tokens_list_to_midi_list
 from symbolic_music.utils import get_tokenizer
@@ -35,8 +37,11 @@ def main():
 
     if args.eval_task_ == 'control_attribute':
         config = BertConfig.from_json_file(os.path.join('./classifier_models/bert/bert-config.json'))
-        model_control = TransformerNetClassifierModel(config, args.in_channel)
-        model_control.load_state_dict(th.load('./classifier_models/bert/checkpoint-30000/pytorch_model.bin', map_location=th.device('cpu')))
+        if args.control_model_type == 'simplified':
+            model_control = SimplifiedTransformerNetClassifierModel(config)
+        else:
+            model_control = TransformerNetClassifierModel(config, args.in_channel)
+        model_control.load_state_dict(th.load(args.control_model_path, map_location=th.device('cpu')))
         learned_embeddings = th.load(args.model_path, map_location=th.device('cpu'))['word_embedding.weight']
         model_control.transformer_net.word_embedding.weight.data = learned_embeddings.clone()
         model_control.transformer_net.word_embedding.weight.requires_grad = False
