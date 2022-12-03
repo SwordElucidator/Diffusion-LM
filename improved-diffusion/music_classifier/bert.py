@@ -181,7 +181,12 @@ def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
         eval_dataset=data_valid,
         compute_metrics=compute_metrics,
     )
-    trainer.train()
+    if data_args.from_check_point:
+        print('from check point...')
+        trainer.train(data_args.from_check_point)
+    else:
+        trainer.train()
+
 
 
 def create_argparser():
@@ -197,6 +202,7 @@ def create_argparser():
         batch_size=64,
         task='train',
         from_state_path='',
+        from_check_point='',
         model_type='normal',
         experiment='instrument',
         path_trained='./classifier_models/bert/checkpoint-5000/pytorch_model.bin',
