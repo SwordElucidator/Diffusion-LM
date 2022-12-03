@@ -140,7 +140,14 @@ def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
         model.transformer_net.word_embedding.weight.data = learned_embeddings.clone()
         model.transformer_net.word_embedding.load_state_dict(weight, strict=False)
 
+    if data_args.from_state_path and not is_eval:
+        print(f'load state from {data_args.from_state_path}')
+        weight = torch.load(data_args.from_state_path)
+        model.load_state_dict(weight)
+    else:
+        print('will train from scratch')
     model.transformer_net.word_embedding.weight.requires_grad = False
+
     return model
 
 
@@ -189,6 +196,7 @@ def create_argparser():
         learning_rate=1e-4,
         batch_size=64,
         task='train',
+        from_state_path='',
         model_type='normal',
         experiment='instrument',
         path_trained='./classifier_models/bert/checkpoint-5000/pytorch_model.bin',
