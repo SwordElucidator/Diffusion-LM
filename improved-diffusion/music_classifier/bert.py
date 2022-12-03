@@ -65,12 +65,14 @@ def create_giant_dataset(data_args, split):
         return data['arr_0'], data['arr_1']
     tokenizer = get_tokenizer(data_args)
     x, y = [], []
-    ALLOWED_TYPES
     for midi_file_name in os.listdir(os.path.join(data_args.data_path, split)):
         if midi_file_name.endswith('.mid'):
+            lowered = midi_file_name.lower()
+            type_ = 'unknown'
             for t in ALLOWED_TYPES:
-                if t in midi_file_name.lower():
-                    pass
+                if t in lowered:
+                    type_ = t
+                    break
             midifile = MidiFile(os.path.join(data_args.data_path, split, midi_file_name))
             tokens = tokenizer.midi_to_tokens(midifile)
             if data_args.padding_mode == 'bar_block':
@@ -143,9 +145,7 @@ def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
 
     def compute_metrics(eval_prediction):
         predictions, label_ids = eval_prediction
-        import pdb
-        pdb.set_trace()
-        acc = np.sum(torch.argmax(predictions, dim=1) == label_ids) / len(label_ids)
+        acc = np.sum(np.argmax(predictions[0], axis=1) == label_ids) / len(label_ids)
         return {"accuracy": acc}
 
     trainer = Trainer(
