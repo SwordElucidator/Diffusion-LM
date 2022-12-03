@@ -9,6 +9,7 @@ from miditoolkit import MidiFile
 
 from improved_diffusion.script_util import add_dict_to_argparser, create_model_and_diffusion, \
     model_and_diffusion_defaults, args_to_dict
+from music_classifier.simplified_transformer_net import SimplifiedTransformerNetClassifierModel
 from music_classifier.transfomer_net import TransformerNetClassifierModel
 from symbolic_music.advanced_padding import advanced_remi_bar_block
 from symbolic_music.utils import get_tokenizer
@@ -37,6 +38,15 @@ def create_dataset(data_args, split='train'):
     return x, y
 
 
+def make_simpler_config(data_args, config):
+    config.num_hidden_layers = 6
+    config.hidden_size = data_args.input_emb_dim
+    config.num_attention_heads = 8
+    config.intermediate_size = config.hidden_size * 4
+    config.max_position_embeddings = 1024
+    config.position_embedding_type = 'relative_key'
+
+
 def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
     config = BertConfig.from_pretrained("bert-base-uncased")
     config.num_labels = num_labels
@@ -44,6 +54,7 @@ def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
     config.vocab_size = len(tokenizer.vocab)
     config.label2id = label2id
     config.id2label = id2label
+    make_simpler_config(data_args, config)
     config.to_json_file(os.path.join(data_args.output_path, 'bert-config.json'))
     with open(os.path.join(*os.path.split(data_args.path_learned)[:-1], 'training_args.json'), 'r') as f:
         train_config = json.load(f)
@@ -51,15 +62,18 @@ def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
     temp_dict.update(train_config)
     _, diffusion = create_model_and_diffusion(**temp_dict)
 
-    model = TransformerNetClassifierModel(config, data_args.input_emb_dim, diffusion)
+    model = SimplifiedTransformerNetClassifierModel(config, diffusion)
     if torch.cuda.is_available():
         weight = torch.load(data_args.path_trained if is_eval else data_args.path_learned)
+        learned_embeddings = torch.load(args.path_learned)['word_embedding.weight']
     else:
         weight = torch.load(data_args.path_trained if is_eval else data_args.path_learned, map_location=torch.device('cpu'))
+        learned_embeddings = torch.load(args.path_learned, map_location=torch.device('cpu'))['word_embedding.weight']
     if is_eval:
         model.load_state_dict(weight)
     else:
-        model.transformer_net.load_state_dict(weight, strict=False)
+        model.transformer_net.word_embedding.weight.data = learned_embeddings.clone()
+        model.transformer_net.word_embedding.load_state_dict(weight, strict=False)
     model.transformer_net.word_embedding.weight.requires_grad = False
     return model
 
