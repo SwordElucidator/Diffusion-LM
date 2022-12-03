@@ -39,6 +39,28 @@ def create_dataset(data_args, split='train'):
     return x, y
 
 
+def create_giant_dataset(data_args, split):
+    data_path = os.path.join(data_args.output_path, f'{split}_data.npz')
+    if os.path.exists(data_path):
+        data = np.load(data_path)
+        return data['arr_0'], data['arr_1']
+    tokenizer = get_tokenizer(data_args)
+    x, y = [], []
+    for midi_file_name in os.listdir(os.path.join(data_args.data_path, split)):
+        if midi_file_name.endswith('.mid'):
+            midifile = MidiFile(os.path.join(data_args.data_path, split, midi_file_name))
+            tokens = tokenizer.midi_to_tokens(midifile)
+            ins = midifile.instruments[0].program
+            if data_args.padding_mode == 'bar_block':
+                for block in advanced_remi_bar_block(tokens, data_args.image_size ** 2, skip_paddings_ratio=0.2):
+                    x.append(block)
+                    y.append(ins)
+            else:
+                raise NotImplementedError
+    np.savez(data_path, x, y)
+    return x, y
+
+
 def make_simpler_config(data_args, config):
     config.num_hidden_layers = 6
     config.hidden_size = data_args.input_emb_dim
@@ -97,7 +119,8 @@ def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
         seed=102,
     )
 
-    def compute_metrics(predictions, label_ids, inputs=None):
+    def compute_metrics(eval_prediction):
+        predictions, label_ids = eval_prediction
         acc = np.sum(np.argmax(predictions, dim=1) == label_ids) / len(label_ids)
         return {"accuracy": acc}
 
