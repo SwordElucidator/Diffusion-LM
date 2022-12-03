@@ -59,7 +59,7 @@ ALLOWED_TYPES = {
 
 
 def create_giant_dataset(data_args, split):
-    data_path = os.path.join(data_args.output_path, f'{split}_data.npz')
+    data_path = os.path.join(data_args.output_path, f'{split}_giant_data.npz')
     if os.path.exists(data_path):
         data = np.load(data_path)
         return data['arr_0'], data['arr_1']
@@ -78,10 +78,11 @@ def create_giant_dataset(data_args, split):
             if data_args.padding_mode == 'bar_block':
                 for block in advanced_remi_bar_block(tokens, data_args.image_size ** 2, skip_paddings_ratio=0.2):
                     x.append(block)
-                    y.append(ins)
+                    y.append(type_)
             else:
                 raise NotImplementedError
     np.savez(data_path, x, y)
+    print(Counter(y))
     return x, y
 
 
@@ -170,6 +171,7 @@ def create_argparser():
         learning_rate=1e-4,
         batch_size=64,
         task='train',
+        experiment='instrument',
         path_trained='./classifier_models/bert/checkpoint-5000/pytorch_model.bin',
         path_learned='./diffusion_models/diff_midi_midi_files_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/model200000.pt'
     )
@@ -194,9 +196,24 @@ def create_data(args):
     return data_train, data_valid, len(large_indexes) + 1, id2label, label2id
 
 
-def eval(data_args):
+def create_giant_data(args):
+    x_train, y_train = create_giant_dataset(args, 'train')
+    x_valid, y_valid = create_giant_dataset(args, 'valid')
+    large_indexes = set(y_train)
+    label2id, id2label = {}, {}
+    for id_, index in enumerate(large_indexes):
+        id2label[str(id_)] = index
+        label2id[index] = id_
+    y_train_cleaned = [label2id[y] for y in y_train]
+    y_valid_cleaned = [label2id[y] for y in y_valid]
+    data_train = [{"label": y, "input_ids": torch.tensor(x)} for x, y in zip(x_train, y_train_cleaned)]
+    data_valid = [{"label": y, "input_ids": torch.tensor(x)} for x, y in zip(x_valid, y_valid_cleaned)]
+    return data_train, data_valid, len(large_indexes) + 1, id2label, label2id
+
+
+def eval(data_args, data_valid, num_labels, id2label, label2id):
     print('start evaluation task...')
-    _, data_valid, num_labels, id2label, label2id = create_data(data_args)
+
     model = create_model(data_args, num_labels, id2label, label2id, is_eval=True)
     loss = 0
     correct = 0
@@ -216,6 +233,9 @@ def eval(data_args):
 if __name__ == '__main__':
     args = create_argparser().parse_args()
     if args.task == 'train':
-        train(args, *create_data(args))
+
+        train(args, *(create_giant_data(args) if args.experiment == 'composition_type' else create_data(args)))
     if args.task == 'eval':
-        eval(args)
+        _, data_valid, num_labels, id2label, label2id = \
+            create_giant_data(args) if args.experiment == 'composition_type' else create_data(args)
+        eval(args, data_valid, num_labels, id2label, label2id)
