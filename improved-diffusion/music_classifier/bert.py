@@ -95,13 +95,13 @@ def make_simpler_config(data_args, config):
     config.position_embedding_type = 'relative_key'
 
 
-def make_normal_config(data_args, config):
-    config.num_hidden_layers = 6
-    config.hidden_size = 256
-    config.num_attention_heads = 8
-    config.intermediate_size = config.hidden_size * 4
-    config.max_position_embeddings = 1024
-    config.position_embedding_type = 'relative_key'
+# def make_normal_config(data_args, config):
+#     config.num_hidden_layers = 6
+#     config.hidden_size = 256
+#     config.num_attention_heads = 8
+#     config.intermediate_size = config.hidden_size * 4
+#     config.max_position_embeddings = 1024
+#     config.position_embedding_type = 'relative_key'
 
 
 def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
@@ -113,8 +113,6 @@ def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
     config.id2label = id2label
     if data_args.model_type == 'simplified':
         make_simpler_config(data_args, config)
-    else:
-        make_normal_config(data_args, config)
     config.to_json_file(os.path.join(data_args.output_path, 'bert-config.json'))
     with open(os.path.join(*os.path.split(data_args.path_learned)[:-1], 'training_args.json'), 'r') as f:
         train_config = json.load(f)
@@ -137,8 +135,10 @@ def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
     if is_eval:
         model.load_state_dict(weight)
     else:
-        model.transformer_net.word_embedding.weight.data = learned_embeddings.clone()
-        model.transformer_net.word_embedding.load_state_dict(weight, strict=False)
+        if data_args.model_type == 'normal':
+            model.transformer_net.load_state_dict(weight, strict=False)
+        else:
+            model.transformer_net.word_embedding.weight.data = learned_embeddings.clone()
 
     if data_args.from_state_path and not is_eval:
         print(f'load state from {data_args.from_state_path}')
