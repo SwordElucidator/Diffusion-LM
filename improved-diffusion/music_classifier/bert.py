@@ -1,7 +1,7 @@
 import argparse
 import json
 import os
-from collections import Counter
+from collections import Counter, defaultdict
 
 import numpy as np
 import torch
@@ -229,11 +229,28 @@ def create_data(args):
     return data_train, data_valid, len(large_indexes) + 1, id2label, label2id
 
 
+def create_smaller_train(x, y):
+    x_processed, y_processed = [], []
+    counter_y = dict(Counter(y))
+    used_dict = defaultdict(int)
+    max_ = int(len(y) / len(counter_y) * 1.2)
+    for x_, y_ in zip(x, y):
+        if used_dict[y_] > max_:
+            continue
+        else:
+            used_dict[y_] += 1
+            x_processed.append(x_)
+            y_processed.append(y_)
+    print(Counter(y_processed))
+    return x_processed, y_processed
+
+
+
 def create_giant_data(args):
-    x_train, y_train = create_giant_dataset(args, 'train')
+    x_train, y_train = create_smaller_train(*create_giant_dataset(args, 'train'))
     x_valid, y_valid = create_giant_dataset(args, 'valid')
-    print(Counter(y_train))
     print(Counter(y_valid))
+    # data aug
     large_indexes = set(y_train)
     label2id, id2label = {}, {}
     for id_, index in enumerate(large_indexes):
