@@ -95,6 +95,15 @@ def make_simpler_config(data_args, config):
     config.position_embedding_type = 'relative_key'
 
 
+def make_normal_config(data_args, config):
+    config.num_hidden_layers = 6
+    config.hidden_size = 256
+    config.num_attention_heads = 8
+    config.intermediate_size = config.hidden_size * 4
+    config.max_position_embeddings = 1024
+    config.position_embedding_type = 'relative_key'
+
+
 def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
     config = BertConfig.from_pretrained("bert-base-uncased")
     config.num_labels = num_labels
@@ -102,7 +111,10 @@ def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
     config.vocab_size = len(tokenizer.vocab)
     config.label2id = label2id
     config.id2label = id2label
-    make_simpler_config(data_args, config)
+    if data_args.model_type == 'simplified':
+        make_simpler_config(data_args, config)
+    else:
+        make_normal_config(data_args, config)
     config.to_json_file(os.path.join(data_args.output_path, 'bert-config.json'))
     with open(os.path.join(*os.path.split(data_args.path_learned)[:-1], 'training_args.json'), 'r') as f:
         train_config = json.load(f)
@@ -110,18 +122,24 @@ def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
     temp_dict.update(train_config)
     _, diffusion = create_model_and_diffusion(**temp_dict)
 
-    model = SimplifiedTransformerNetClassifierModel(config, diffusion)
+    if data_args.model_type == 'simplified':
+        model = SimplifiedTransformerNetClassifierModel(config, diffusion)
+    else:
+        model = TransformerNetClassifierModel(config, data_args.input_emb_dim, diffusion)
+
     if torch.cuda.is_available():
         weight = torch.load(data_args.path_trained if is_eval else data_args.path_learned)
         learned_embeddings = torch.load(args.path_learned)['word_embedding.weight']
     else:
-        weight = torch.load(data_args.path_trained if is_eval else data_args.path_learned, map_location=torch.device('cpu'))
+        weight = torch.load(data_args.path_trained if is_eval else data_args.path_learned,
+                            map_location=torch.device('cpu'))
         learned_embeddings = torch.load(args.path_learned, map_location=torch.device('cpu'))['word_embedding.weight']
     if is_eval:
         model.load_state_dict(weight)
     else:
         model.transformer_net.word_embedding.weight.data = learned_embeddings.clone()
         model.transformer_net.word_embedding.load_state_dict(weight, strict=False)
+
     model.transformer_net.word_embedding.weight.requires_grad = False
     return model
 
@@ -171,6 +189,7 @@ def create_argparser():
         learning_rate=1e-4,
         batch_size=64,
         task='train',
+        model_type='normal',
         experiment='instrument',
         path_trained='./classifier_models/bert/checkpoint-5000/pytorch_model.bin',
         path_learned='./diffusion_models/diff_midi_midi_files_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/model200000.pt'
