@@ -13,7 +13,8 @@ from music_classifier.simplified_transformer_net import SimplifiedTransformerNet
 from music_classifier.transfomer_net import TransformerNetClassifierModel
 from symbolic_music.advanced_padding import advanced_remi_bar_block
 from symbolic_music.utils import get_tokenizer
-from transformers import BertConfig, TrainingArguments, Trainer, IntervalStrategy
+from transformers import BertConfig, TrainingArguments, Trainer, IntervalStrategy, get_cosine_schedule_with_warmup, \
+    AdamW
 
 
 def create_dataset(data_args, split='train'):
@@ -82,7 +83,7 @@ def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
     model = create_model(data_args, num_labels, id2label, label2id)
     training_args = TrainingArguments(
         output_dir=data_args.output_path,
-        # learning_rate=1e-4,
+        learning_rate=data_args.learning_rate,
         per_device_train_batch_size=data_args.batch_size,
         per_device_eval_batch_size=data_args.batch_size,
         num_train_epochs=data_args.epoches,
@@ -95,11 +96,17 @@ def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
         save_steps=5000,
         seed=102,
     )
+
+    def compute_metrics(predictions, label_ids, inputs=None):
+        acc = np.sum(np.argmax(predictions, dim=1) == label_ids) / len(label_ids)
+        return {"accuracy": acc}
+
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=data_train,
         eval_dataset=data_valid,
+        compute_metrics=compute_metrics,
     )
     trainer.train()
 
@@ -113,6 +120,7 @@ def create_argparser():
         output_path='./classifier_models/bert/',
         padding_mode='bar_block',
         epoches=30,
+        learning_rate=1e-4,
         batch_size=64,
         task='train',
         path_trained='./classifier_models/bert/checkpoint-5000/pytorch_model.bin',
