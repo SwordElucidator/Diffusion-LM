@@ -246,9 +246,24 @@ def create_smaller_train(x, y):
 
 
 
+def create_smaller_valid(x, y):
+    x_processed, y_processed = [], []
+    used_dict = defaultdict(int)
+    max_ = 1000
+    for x_, y_ in zip(x, y):
+        if used_dict[y_] > max_:
+            continue
+        else:
+            used_dict[y_] += 1
+            x_processed.append(x_)
+            y_processed.append(y_)
+    print(Counter(y_processed))
+    return x_processed, y_processed
+
+
 def create_giant_data(args):
     x_train, y_train = create_smaller_train(*create_giant_dataset(args, 'train'))
-    x_valid, y_valid = create_giant_dataset(args, 'valid')
+    x_valid, y_valid = create_smaller_valid(*create_giant_dataset(args, 'valid'))
     print(Counter(y_valid))
     # data aug
     large_indexes = set(y_train)
