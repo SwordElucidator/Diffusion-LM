@@ -70,7 +70,7 @@ def create_giant_dataset(data_args, split):
         if midi_file_name.endswith('.mid'):
             for t in ALLOWED_TYPES:
                 if t in midi_file_name.lower():
-
+                    pass
             midifile = MidiFile(os.path.join(data_args.data_path, split, midi_file_name))
             tokens = tokenizer.midi_to_tokens(midifile)
             if data_args.padding_mode == 'bar_block':
