@@ -39,6 +39,25 @@ def create_dataset(data_args, split='train'):
     return x, y
 
 
+ALLOWED_TYPES = {
+    'polka',
+    'sonatina',
+    'etude',
+    'rondo',
+    'ballade',
+    'fantasia',
+    'christian',
+    'variations',
+    'prelude',
+    'valse',
+    'waltz',
+    'morceaux',
+    'mazurka',
+    'sonata',
+    'romance',
+}
+
+
 def create_giant_dataset(data_args, split):
     data_path = os.path.join(data_args.output_path, f'{split}_data.npz')
     if os.path.exists(data_path):
@@ -46,11 +65,14 @@ def create_giant_dataset(data_args, split):
         return data['arr_0'], data['arr_1']
     tokenizer = get_tokenizer(data_args)
     x, y = [], []
+    ALLOWED_TYPES
     for midi_file_name in os.listdir(os.path.join(data_args.data_path, split)):
         if midi_file_name.endswith('.mid'):
+            for t in ALLOWED_TYPES:
+                if t in midi_file_name.lower():
+
             midifile = MidiFile(os.path.join(data_args.data_path, split, midi_file_name))
             tokens = tokenizer.midi_to_tokens(midifile)
-            ins = midifile.instruments[0].program
             if data_args.padding_mode == 'bar_block':
                 for block in advanced_remi_bar_block(tokens, data_args.image_size ** 2, skip_paddings_ratio=0.2):
                     x.append(block)
@@ -121,7 +143,9 @@ def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
 
     def compute_metrics(eval_prediction):
         predictions, label_ids = eval_prediction
-        acc = np.sum(np.argmax(predictions, dim=1) == label_ids) / len(label_ids)
+        import pdb
+        pdb.set_trace()
+        acc = np.sum(torch.argmax(predictions, dim=1) == label_ids) / len(label_ids)
         return {"accuracy": acc}
 
     trainer = Trainer(
