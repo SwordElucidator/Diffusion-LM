@@ -1,7 +1,10 @@
 import argparse
 import json
 import os
+import random
 from collections import Counter, defaultdict
+from dataclasses import dataclass
+from typing import List, Dict, Any
 
 import numpy as np
 import torch
@@ -10,11 +13,12 @@ from miditoolkit import MidiFile
 from improved_diffusion.script_util import add_dict_to_argparser, create_model_and_diffusion, \
     model_and_diffusion_defaults, args_to_dict
 from music_classifier.simplified_transformer_net import SimplifiedTransformerNetClassifierModel
-from music_classifier.transfomer_net import TransformerNetClassifierModel
+from music_classifier.transfomer_net import TransformerNetClassifierModel, TimedTransformerNetModelForPretrain
 from symbolic_music.advanced_padding import advanced_remi_bar_block
 from symbolic_music.utils import get_tokenizer
 from transformers import BertConfig, TrainingArguments, Trainer, IntervalStrategy, get_cosine_schedule_with_warmup, \
-    AdamW
+    AdamW, DataCollatorForLanguageModeling, AutoTokenizer, BatchEncoding
+from transformers.data.data_collator import DataCollatorMixin, InputDataClass
 
 
 def create_dataset(data_args, split='train'):
@@ -297,12 +301,130 @@ def eval(data_args, data_valid, num_labels, id2label, label2id):
     print(f"acc: {correct / len(data_valid)}")
 
 
+def mdm_data_collator(features: List[InputDataClass], return_tensors, word_count) -> Dict[str, Any]:
+    # should be {input_ids: xxx}
+    mlm_probability = 0.1
+    first = features[0]
+    batch = {}
+
+    for k, v in first.items():
+        if k not in ("label", "label_ids") and v is not None and not isinstance(v, str):
+            if isinstance(v, torch.Tensor):
+                batch[k] = torch.stack([f[k] for f in features])
+            else:
+                # print(k, v)
+                batch[k] = torch.tensor([f[k] for f in features])
+
+    labels = batch["input_ids"].clone()
+    torch.argmin(labels, dim=1)
+    probability_matrix = torch.full(labels.shape, mlm_probability)
+    masked_indices = torch.bernoulli(probability_matrix).bool()
+    labels[~masked_indices] = -100
+
+    # 80% of the time, we replace masked input tokens with tokenizer.mask_token ([MASK])
+    indices_replaced = torch.bernoulli(torch.full(labels.shape, 0.8)).bool() & masked_indices
+    batch["input_ids"][indices_replaced] = 121  # 征用，没留mask
+
+    # 10% of the time, we replace masked input tokens with random word
+    indices_random = torch.bernoulli(torch.full(labels.shape, 0.5)).bool() & masked_indices & ~indices_replaced
+    random_words = torch.randint(word_count, labels.shape, dtype=torch.long)
+    batch["input_ids"][indices_random] = random_words[indices_random]
+    # The rest of the time (10% of the time) we keep the masked input tokens unchanged
+    batch["labels"] = labels
+    return batch
+
+
+@dataclass
+class MLMDataCollator(DataCollatorMixin):
+    return_tensors: str = "pt"
+
+    def __init__(self, word_count):
+        self.word_count = word_count
+
+    def __call__(self, features: List[Dict[str, Any]], return_tensors=None) -> Dict[str, Any]:
+        if return_tensors is None:
+            return_tensors = self.return_tensors
+        return mdm_data_collator(features, return_tensors, self.word_count)
+
+
+def create_pretrain_model(data_args):
+    config = BertConfig.from_pretrained("bert-base-uncased")
+    tokenizer = get_tokenizer(data_args)
+    config.vocab_size = len(tokenizer.vocab)
+    config.to_json_file(os.path.join(data_args.output_path, 'bert-config.json'))
+    with open(os.path.join(*os.path.split(data_args.path_learned)[:-1], 'training_args.json'), 'r') as f:
+        train_config = json.load(f)
+    temp_dict = model_and_diffusion_defaults()
+    temp_dict.update(train_config)
+    _, diffusion = create_model_and_diffusion(**temp_dict)
+
+    model = TimedTransformerNetModelForPretrain(config, data_args.input_emb_dim, diffusion)
+
+    if torch.cuda.is_available():
+        weight = torch.load(data_args.path_learned)
+    else:
+        weight = torch.load(data_args.path_learned,
+                            map_location=torch.device('cpu'))
+    model.transformer_net.load_state_dict(weight, strict=False)
+
+    if data_args.from_state_path:
+        print(f'load state from {data_args.from_state_path}')
+        weight = torch.load(data_args.from_state_path)
+        model.load_state_dict(weight)
+    else:
+        print('will train from scratch')
+    model.transformer_net.word_embedding.weight.requires_grad = False
+
+    return model
+
+
+def pretrain(data_args):
+    x_train, _ = create_giant_dataset(args, 'train')  # TODO
+    x_valid, _ = create_giant_dataset(args, 'valid')  # TODO
+    print(len(x_train), len(x_valid))
+    data_train = [{"input_ids": torch.tensor(x)} for x in x_train]
+    data_valid = [{"input_ids": torch.tensor(x)} for x in x_valid]
+    random.shuffle(data_valid)
+    data_valid = data_valid[0: 2048]
+    model = create_pretrain_model(data_args)
+    training_args = TrainingArguments(
+        output_dir=data_args.output_path,
+        learning_rate=data_args.learning_rate,
+        per_device_train_batch_size=data_args.batch_size,
+        per_device_eval_batch_size=data_args.batch_size,
+        num_train_epochs=data_args.epoches,
+        weight_decay=0.0,
+        do_train=True,
+        do_eval=True,
+        logging_steps=1000,
+        evaluation_strategy=IntervalStrategy('steps'),
+        logging_strategy=IntervalStrategy('steps'),
+        save_steps=5000,
+        seed=102,
+    )
+
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=data_train,
+        eval_dataset=data_valid,
+        data_collator=MLMDataCollator(model.config.vocab_size)
+    )
+    if data_args.from_check_point:
+        print('from check point...')
+        trainer.train(data_args.from_check_point)
+    else:
+        trainer.train()
+
+
 if __name__ == '__main__':
     args = create_argparser().parse_args()
     if args.task == 'train':
-
         train(args, *(create_giant_data(args) if args.experiment == 'composition_type' else create_data(args)))
     if args.task == 'eval':
         _, data_valid, num_labels, id2label, label2id = \
             create_giant_data(args) if args.experiment == 'composition_type' else create_data(args)
         eval(args, data_valid, num_labels, id2label, label2id)
+    if args.task == 'pretrain':
+        pretrain(args)
+

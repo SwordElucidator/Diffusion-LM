@@ -1,11 +1,12 @@
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from transformers.modeling_outputs import SequenceClassifierOutput
-from transformers.models.bert.modeling_bert import BertEncoder, BertPooler
+from transformers.models.bert.modeling_bert import BertEncoder, BertPooler, BertPreTrainingHeads, \
+    BertForPreTrainingOutput, BertOnlyMLMHead
 import torch
 import torch.nn as nn
 
 
-class TimedTransformerNetModel(nn.Module):
+class PretrainedTimedTransformerNetModel(nn.Module):
     def __init__(
         self,
         config,
@@ -21,10 +22,6 @@ class TimedTransformerNetModel(nn.Module):
 
         # embedding layer  shape -> [*shape, in_channels]
         self.word_embedding = nn.Embedding(config.vocab_size, self.in_channels)
-        # language model head   in_channels -> vocab_size
-        self.lm_head = nn.Linear(self.in_channels, config.vocab_size)
-        with torch.no_grad():
-            self.lm_head.weight = self.word_embedding.weight
 
         self.time_embeddings = nn.Embedding(self.train_diff_steps + 1, config.hidden_size)
         # in_channels -> 768(hidden_size) -> 768(hidden_size)
@@ -46,22 +43,7 @@ class TimedTransformerNetModel(nn.Module):
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
-        # 768 -> 768 -> 16
-        self.output_down_proj = nn.Sequential(
-            nn.Linear(config.hidden_size, config.hidden_size),
-            nn.Tanh(),
-            nn.Linear(config.hidden_size, out_channels)
-        )
-
-    def get_embeds(self, input_ids):
-        # shape -> [*shape, in_channels]
-        return self.word_embedding(input_ids)
-
-    def get_logits(self, hidden_repr):
-        # in_channels (~16) -> vocab_size
-        return self.lm_head(hidden_repr)
-
-    def get_hidden_state(self, x, timesteps=None):
+    def forward(self, x, timesteps=None):
         if self.diffusion is not None:
             # sample t
             t = torch.randint(-1, self.train_diff_steps, (x.shape[0],)).to(x.device)
@@ -85,14 +67,49 @@ class TimedTransformerNetModel(nn.Module):
         emb_inputs = self.dropout(self.LayerNorm(emb_inputs))
 
         # 768 -> 768
-        return self.input_transformers(emb_inputs).last_hidden_state
+        return self.input_transformers(emb_inputs)
 
-    def forward(self, x, timesteps=None):
-        # (,768) -> (,16)
-        h = self.output_down_proj(self.get_hidden_state(x, timesteps))
-        h = h.type(x.dtype)
-        return h
 
+class TimedTransformerNetModelForPretrain(nn.Module):
+    def __init__(self, config, in_channels, diffusion=None):
+        super().__init__()
+        # load bert config
+        # config = AutoConfig.from_pretrained(config_name)
+        # config.hidden_dropout_prob = dropout
+        # config.max_position_embeddings = max_position_embeddings
+        self.config = config
+        self.num_labels = config.num_labels
+        self.transformer_net = PretrainedTimedTransformerNetModel(
+            config, in_channels, in_channels, diffusion=diffusion
+        )
+        self.cls = BertOnlyMLMHead(config)
+
+    def forward(
+            self, input_ids, timesteps=None, imput_embed=None,
+            labels=None  # , next_sentence_label=None,
+            # only input_ids and labels required; timesteps auto generated
+    ):
+        # 只有eval的时候传timesteps
+        if imput_embed is None:
+            imput_embed = self.transformer_net.word_embedding(input_ids)
+        output = self.transformer_net(imput_embed, timesteps)
+        hidden_state = output.last_hidden_state
+        prediction_scores = self.cls(hidden_state)
+
+        lm_loss = None
+        if labels is not None:
+            # we are doing next-token prediction; shift prediction scores and input ids by one
+            shifted_prediction_scores = prediction_scores[:, :-1, :].contiguous()
+            labels = labels[:, 1:].contiguous()
+            loss_fct = CrossEntropyLoss()
+            lm_loss = loss_fct(shifted_prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
+
+        return BertForPreTrainingOutput(
+            loss=lm_loss,
+            prediction_logits=prediction_scores,
+            hidden_states=output.hidden_states,
+            attentions=output.attentions,
+        )
 
 class TransformerNetClassifierModel(nn.Module):
     def __init__(self, config, in_channels, diffusion=None):
@@ -103,7 +120,7 @@ class TransformerNetClassifierModel(nn.Module):
         # config.max_position_embeddings = max_position_embeddings
         self.config = config
         self.num_labels = config.num_labels
-        self.transformer_net = TimedTransformerNetModel(
+        self.transformer_net = PretrainedTimedTransformerNetModel(
             config, in_channels, in_channels, diffusion=diffusion
         )
 
@@ -121,8 +138,8 @@ class TransformerNetClassifierModel(nn.Module):
         # 只有eval的时候传timesteps
         if imput_embed is None:
             imput_embed = self.transformer_net.word_embedding(input_ids)
-        hidden_state = self.transformer_net.get_hidden_state(imput_embed, timesteps)
-        pooled_output = self.pooler(hidden_state)
+        output = self.transformer_net(imput_embed, timesteps)
+        pooled_output = self.pooler(output.last_hidden_state)
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
         loss = None
@@ -150,5 +167,5 @@ class TransformerNetClassifierModel(nn.Module):
         return SequenceClassifierOutput(
             loss=loss,
             logits=logits,
-            hidden_states=hidden_state,
+            hidden_states=output.hidden_states,
         )

@@ -6,4 +6,7 @@ improved-diffusion/scripts/diffusion_models/*
 *.pyc
 .DS_Store
 *.mid
+*.midi
+*.pt
+*.bin
 *.npz
