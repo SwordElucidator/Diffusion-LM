@@ -129,20 +129,24 @@ def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
     else:
         model = TransformerNetClassifierModel(config, data_args.input_emb_dim, diffusion)
 
-    if torch.cuda.is_available():
-        weight = torch.load(data_args.path_trained if is_eval else data_args.path_learned)
-        learned_embeddings = torch.load(args.path_learned)['word_embedding.weight']
-    else:
-        weight = torch.load(data_args.path_trained if is_eval else data_args.path_learned,
-                            map_location=torch.device('cpu'))
-        learned_embeddings = torch.load(args.path_learned, map_location=torch.device('cpu'))['word_embedding.weight']
-    if is_eval:
+    if data_args.is_from_pretrained:
+        weight = torch.load(data_args.path_learned)
         model.load_state_dict(weight)
     else:
-        if data_args.model_type == 'normal':
-            model.transformer_net.load_state_dict(weight, strict=False)
+        if torch.cuda.is_available():
+            weight = torch.load(data_args.path_trained if is_eval else data_args.path_learned)
+            learned_embeddings = torch.load(args.path_learned)['word_embedding.weight']
         else:
-            model.transformer_net.word_embedding.weight.data = learned_embeddings.clone()
+            weight = torch.load(data_args.path_trained if is_eval else data_args.path_learned,
+                                map_location=torch.device('cpu'))
+            learned_embeddings = torch.load(args.path_learned, map_location=torch.device('cpu'))['word_embedding.weight']
+        if is_eval:
+            model.load_state_dict(weight)
+        else:
+            if data_args.model_type == 'normal':
+                model.transformer_net.load_state_dict(weight, strict=False)
+            else:
+                model.transformer_net.word_embedding.weight.data = learned_embeddings.clone()
 
     if data_args.from_state_path and not is_eval:
         print(f'load state from {data_args.from_state_path}')
@@ -205,6 +209,7 @@ def create_argparser():
         learning_rate=1e-4,
         batch_size=64,
         task='train',
+        is_from_pretrained=False,
         from_state_path='',
         from_check_point='',
         model_type='normal',
