@@ -129,8 +129,8 @@ def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
     else:
         model = TransformerNetClassifierModel(config, data_args.input_emb_dim, diffusion)
 
-    if data_args.is_from_pretrained:
-        weight = torch.load(data_args.path_learned)
+    if data_args.pretrained_model_path:
+        weight = torch.load(data_args.pretrained_model_path)
         model.load_state_dict(weight)
     else:
         if torch.cuda.is_available():
@@ -209,7 +209,7 @@ def create_argparser():
         learning_rate=1e-4,
         batch_size=64,
         task='train',
-        is_from_pretrained=False,
+        pretrained_model_path='',
         from_state_path='',
         from_check_point='',
         model_type='normal',
