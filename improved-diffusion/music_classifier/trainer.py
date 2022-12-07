@@ -214,8 +214,8 @@ def create_argparser():
         from_check_point='',
         model_type='normal',
         experiment='instrument',
-        path_trained='./classifier_models/bert/checkpoint-5000/pytorch_model.bin',
-        path_learned='./diffusion_models/diff_midi_midi_files_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/model200000.pt'
+        path_trained='',  # ./classifier_models/bert/checkpoint-5000/pytorch_model.bin
+        path_learned=''  # ./diffusion_models/diff_midi_midi_files_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/model200000.pt
     )
     parser = argparse.ArgumentParser()
     add_dict_to_argparser(parser, defaults)
@@ -371,11 +371,13 @@ def create_pretrain_model(data_args):
         weight = torch.load(data_args.path_learned,
                             map_location=torch.device('cpu'))
     model.transformer_net.load_state_dict(weight, strict=False)
+    frozen_word_embedding_weight = model.transformer_net.word_embedding.weight.clone()
 
     if data_args.from_state_path:
         print(f'load state from {data_args.from_state_path}')
         weight = torch.load(data_args.from_state_path)
         model.load_state_dict(weight)
+        model.transformer_net.word_embedding.weight = frozen_word_embedding_weight
     else:
         print('will train from scratch')
     model.transformer_net.word_embedding.weight.requires_grad = False
