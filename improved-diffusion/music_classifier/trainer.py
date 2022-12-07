@@ -377,7 +377,7 @@ def create_pretrain_model(data_args):
         print(f'load state from {data_args.from_state_path}')
         weight = torch.load(data_args.from_state_path)
         model.load_state_dict(weight)
-        model.transformer_net.word_embedding.weight = frozen_word_embedding_weight
+        model.transformer_net.word_embedding.weight = torch.nn.Parameter(frozen_word_embedding_weight)
     else:
         print('will train from scratch')
     model.transformer_net.word_embedding.weight.requires_grad = False
