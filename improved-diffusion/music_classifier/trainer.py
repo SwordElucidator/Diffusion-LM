@@ -130,8 +130,8 @@ def create_model(data_args, num_labels, id2label, label2id, is_eval=False):
         model = TransformerNetClassifierModel(config, data_args.input_emb_dim, diffusion)
 
     if data_args.pretrained_model_path:
-        weight = torch.load(data_args.pretrained_model_path, strict=False)
-        model.load_state_dict(weight)
+        weight = torch.load(data_args.pretrained_model_path)
+        model.load_state_dict(weight, strict=False)
     else:
         if torch.cuda.is_available():
             weight = torch.load(data_args.path_trained if is_eval else data_args.path_learned)
