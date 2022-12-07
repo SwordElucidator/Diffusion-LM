@@ -179,9 +179,7 @@ def train(data_args, data_train, data_valid, num_labels, id2label, label2id):
 
     def compute_metrics(eval_prediction):
         predictions, label_ids = eval_prediction
-        import pdb
-        pdb.set_trace()
-        acc = np.sum(np.argmax(predictions[0], axis=1) == label_ids) / len(label_ids)
+        acc = np.sum(np.argmax(predictions, axis=1) == label_ids) / len(label_ids)
         return {"accuracy": acc}
 
     trainer = Trainer(
