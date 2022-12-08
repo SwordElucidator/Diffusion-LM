@@ -38,10 +38,26 @@ mkdir generation_outputs
 
 ------------------- 
 ## Classifier
+
+### FC
 Follow `notebooks/MusicClassifier copy.ipynb`
 
+### Pre-train TransformerNet Model
+`` python music_classifier/trainer.py --task=train --data_path=../datasets/midi/giant_midi_piano --experiment=composition_type --outputnohup python music_classifier/trainer.py  --task=pretrain --data_path=../datasets/midi/giant_midi_piano --experiment=composition_type --output_path=./classifier_models/pretrain/ --from_state_path=./classifier_models/pretrain/checkpoint-60000/pytorch_model.bin --from_check_point=./classifier_models/pretrain/checkpoint-60000 --epoches=60 --path_learned=./diffusion_models/diff_midi_giant_midi_piano_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/model400000.pt``
+
+### TransformerNet Model Fine-Tune
+
+``python music_classifier/trainer.py --task=train --data_path=../datasets/midi/giant_midi_piano --experiment=composition_type --outputnohup python music_classifier/trainer.py --task=train --data_path=../datasets/midi/giant_midi_piano --experiment=composition_type --output_path=./classifier_models/finetune/ --epoches=30 --pretrained_model_path=./classifier_models/pretrain/checkpoint-110000/pytorch_model.bin --path_learned=./diffusion_models/diff_midi_giant_midi_piano_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/model400000.pt``
+
 ------------------- 
-## Controllable Midi Generation (TODO)
+## Controllable Midi Generation
+
+### Infill & Length
+``python symbolic_music/scripts/infill_length.py --model_path diffusion_models/diff_midi_midi_files_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/model200000.pt --eval_task_ length --tgt_len 230 --use_ddim True --eta 1. --batch_size 16 --num_samples 16 --out_dir genout_control``
+
+### Classifier Guided Generation
+
+``python symbolic_music/scripts/control_attribute.py --model_path diffusion_models/diff_midi_midi_files_REMI_bar_block_rand32_transformer_lr0.0001_0.0_2000_sqrt_Lsimple_h128_s2_d0.1_sd102_xstart_midi/model200000.pt --eval_task_ control_attribute --tgt_len 230 --use_ddim True --eta 1. --batch_size 16 --num_samples 16 --out_dir genout_control``
 
 [//]: # (First, train the classsifier used to guide the generation &#40;e.g. a syntactic parser&#41; )
 
@@ -66,7 +82,14 @@ Follow `notebooks/MusicClassifier copy.ipynb`
 
 -----------------------------------------------------
 
-For details of the methods and results, please refer to our paper. 
+```bibtex
+@article{Sun-Ouyang-2022-DiffusionLM-symbolic,
+  title={Diffusion-LM on Symbolic Music Generation with Controllability},
+  author={Hao Sun and Liwen Ouyang},
+  year={2022},
+}
+```
+Please also refer to the original paper. 
 
 
 ```bibtex
