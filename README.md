@@ -3,7 +3,7 @@
 Based on Diffusion-LM Improves Controllable Text Generation
 https://arxiv.org/pdf/2205.14217.pdf 
 
-This is a stanford cs230 project by Hao Sun and Liwen Ouyang.
+This is a Stanford cs230 project by Hao Sun and Liwen Ouyang.
 https://cs230.stanford.edu/projects_fall_2022/reports/16.pdf
 
 
